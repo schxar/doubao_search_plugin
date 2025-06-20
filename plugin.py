@@ -100,8 +100,11 @@ class DoubaoSearchGenerationAction(BaseAction):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         api_key = self.get_config("api.volcano_generate_api_key")
+        model_name = self.get_config("api.model_name")
         if not isinstance(api_key, str):
             raise ValueError("API key must be a string")
+        if not isinstance(model_name, str):
+            raise ValueError("Model name must be a string")
 
         self.client = OpenAI(
             base_url="https://ark.cn-beijing.volces.com/api/v3/bots",
@@ -124,7 +127,7 @@ class DoubaoSearchGenerationAction(BaseAction):
         try:
             # 调用OpenAI客户端
             completion = self.client.chat.completions.create(
-                model="bot-20250506042211-5bscp",
+                model=self.get_config("api.model_name"),  # 从配置中读取模型名称
                 messages=[
                     {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
                     {"role": "user", "content": query},
@@ -198,6 +201,9 @@ class DoubaoSearchPlugin(BasePlugin):
             ),
             "volcano_generate_api_key": ConfigField(
                 type=str, default="YOUR_DOUBAO_API_KEY_HERE", description="火山引擎豆包API密钥", required=True
+            ),
+            "model_name": ConfigField(
+                type=str, default="bot-20250506042211-5bscp", description="使用的模型名称", required=True
             ),
         },
         "cache": {

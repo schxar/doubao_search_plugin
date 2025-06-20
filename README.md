@@ -27,6 +27,16 @@ maimai的DEV 08S2 用 耐杀王
 - 请确保 `volcano_generate_api_key` 字段填写正确的API密钥，否则插件将无法正常工作。
 - 修改配置文件后，请重新启动插件以应用更改。
 
-更多信息请参考插件的[官方文档](https://github.com/MaiM-with-u/maibot)
+## 如何获取自定义模型端点
 
-(https://github.com/MaiM-with-u/MaiBot/tree/dev).
+为了使用豆包搜索插件，您需要在火山引擎控制台中创建一个无代码应用并开通联网插件。请按照以下步骤操作：
+
+1. 打开[火山引擎控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/assistant)。
+2. 创建一个新的无代码应用。
+3. 前往[联网插件页面](https://console.volcengine.com/ark/region:ark+cn-beijing/components?action=%7B%7D)并开通联网插件。
+4. 在无代码应用中配置您的自定义模型端点。
+5. 将生成的模型端点填入 `config.toml` 文件中的 `model_name` 字段。
+
+完成以上步骤后，请确保重新启动插件以应用更改。
+
+更多信息请参考插件的[官方文档](https://github.com/MaiM-with-u/MaiBot/tree/dev)。

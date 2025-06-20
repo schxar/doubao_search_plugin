@@ -1,0 +1,41 @@
+{
+  "manifest_version": 1,
+  "name": "豆包搜索插件 (Doubao Search Plugin)",
+  "version": "1.0.0",
+  "description": "基于火山引擎豆包模型的AI搜索插件，支持智能LLM判定和高效搜索功能。",
+  "author": {
+    "name": "MaiBot团队",
+    "url": "https://github.com/MaiM-with-u"
+  },
+  "license": "GPL-v3.0-or-later",
+  "host_application": {
+    "min_version": "0.8.0",
+    "max_version": "0.8.0"
+  },
+  "homepage_url": "https://github.com/MaiM-with-u/maibot",
+  "repository_url": "https://github.com/MaiM-with-u/maibot",
+  "keywords": ["ai", "search", "doubao", "volcengine", "query"],
+  "categories": ["AI Tools", "Search", "Content Retrieval"],
+  "default_locale": "zh-CN",
+  "locales_path": "_locales",
+  "plugin_info": {
+    "is_built_in": true,
+    "plugin_type": "content_retrieval",
+    "api_dependencies": ["volcengine"],
+    "components": [
+      {
+        "type": "action",
+        "name": "doubao_search_action",
+        "description": "根据描述使用火山引擎豆包API生成搜索结果",
+        "activation_modes": ["llm_judge", "keyword"],
+        "keywords": ["搜索", "查询", "查找", "search", "find"]
+      }
+    ],
+    "features": [
+      "智能LLM判定生成时机",
+      "高效AI搜索功能",
+      "结果缓存机制",
+      "完整的错误处理"
+    ]
+  }
+}

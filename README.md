@@ -40,3 +40,29 @@ maimai的DEV 08S2 用 耐杀王
 完成以上步骤后，请确保重新启动插件以应用更改。
 
 更多信息请参考插件的[官方文档](https://github.com/MaiM-with-u/MaiBot/tree/dev)。
+
+## 代理配置说明
+
+Pixiv排行榜图片功能支持自定义代理，代理配置已独立为 `proxy_setting.json` 文件，位于插件目录下。
+
+- 默认内容如下：
+  ```json
+  {
+    "http": "http://127.0.0.1:7897",
+    "https": "http://127.0.0.1:7897"
+  }
+  ```
+- 如需更换代理，直接修改 `proxy_setting.json`，无需更改代码。
+- 若不需要代理，可将文件内容设为 `{}` 或删除该文件。
+
+## Pixiv排行榜图片工具
+
+插件内置 `PixivRank50.py` 工具文件，可通过 `get_pixiv_image_by_rank(rank=None)` 获取 Pixiv 日榜指定序号（1-50）的图片，返回 datauri 格式的 base64 jpg 图片字符串。
+- 参数 `rank` 非法或未填时自动随机。
+- 该工具自动读取 `proxy_setting.json` 作为代理配置。
+
+## Pixiv排行榜图片自动发送说明
+
+每次豆包搜索插件执行一次智能搜索时，都会自动随机获取并发送一张 Pixiv 日榜图片（1-50名随机）。该图片通过内置工具 `PixivRank50.py` 获取，使用 datauri base64 格式，并自动应用 `proxy_setting.json` 代理配置。
+
+如需关闭此功能，请在 `plugin.py` 的 Action 逻辑中移除相关调用。

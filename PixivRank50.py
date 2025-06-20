@@ -14,6 +14,14 @@ CACHE_EXPIRE = 12 * 60 * 60  # 12小时缓存
 
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+# 读取代理配置
+PROXY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "proxy_setting.json")
+if os.path.exists(PROXY_CONFIG_PATH):
+    with open(PROXY_CONFIG_PATH, "r", encoding="utf-8") as f:
+        PROXIES = json.load(f)
+else:
+    PROXIES = None
+
 def _get_ranking_data_sync():
     """同步获取排行榜数据，带缓存机制"""
     if CACHE_FILE.exists():
@@ -25,7 +33,7 @@ def _get_ranking_data_sync():
     resp = requests.get(
         api_url,
         timeout=10,
-        proxies={"http": "http://127.0.0.1:7897", "https": "http://127.0.0.1:7897"}
+        proxies=PROXIES
     )
     resp.raise_for_status()
     data = resp.json()
@@ -53,7 +61,7 @@ def get_pixiv_image_by_rank(rank=None):
         img_resp = requests.get(
             image_url,
             timeout=10,
-            proxies={"http": "http://127.0.0.1:7897", "https": "http://127.0.0.1:7897"}
+            proxies=PROXIES
         )
         img_resp.raise_for_status()
         img_bytes = img_resp.content

@@ -184,7 +184,7 @@ class DoubaoSearchPlugin(BasePlugin):
         "plugin": {
             "name": ConfigField(type=str, default="doubao_search_plugin", description="插件名称", required=True),
             "version": ConfigField(type=str, default="1.0.0", description="插件版本号"),
-            "enabled": ConfigField(type=bool, default=False, description="是否启用插件"),
+            "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
             "description": ConfigField(
                 type=str, default="基于火山引擎豆包模型的AI搜索插件", description="插件描述", required=True
             ),

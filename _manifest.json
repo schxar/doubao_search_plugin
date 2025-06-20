@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "基于火山引擎豆包模型的AI搜索插件，支持智能LLM判定和高效搜索功能。",
   "author": {
-    "name": "MaiBot团队",
+    "name": "Schxar",
     "url": "https://github.com/MaiM-with-u"
   },
   "license": "GPL-v3.0-or-later",

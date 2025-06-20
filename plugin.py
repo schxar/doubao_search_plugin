@@ -203,7 +203,7 @@ class DoubaoSearchPlugin(BasePlugin):
                 type=str, default="YOUR_DOUBAO_API_KEY_HERE", description="火山引擎豆包API密钥", required=True
             ),
             "model_name": ConfigField(
-                type=str, default="bot-20250506042211-5bscp", description="使用的模型名称", required=True
+                type=str, default="YOUR_DOUBAO_MODEL_NAME_HERE", description="使用的模型名称", required=True
             ),
         },
         "cache": {

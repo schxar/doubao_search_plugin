@@ -33,6 +33,10 @@ from src.plugin_system.base.config_types import ConfigField
 from src.common.logger import get_logger
 from openai import OpenAI
 
+from .PixivRank50 import get_pixiv_image_by_rank
+from .pixiv_image_action import get_random_pixiv_image
+from .moehu_image_action import get_moehu_image
+
 logger = get_logger("doubao_search_plugin")
 
 
@@ -140,7 +144,7 @@ class DoubaoSearchGenerationAction(BaseAction):
 
             # 发送一张Pixiv排行榜随机图片
             try:
-                from .PixivRank50 import get_pixiv_image_by_rank
+                
                 img_datauri = get_pixiv_image_by_rank(None)
                 # 只取datauri的base64部分
                 if img_datauri.startswith("data:image/"):
@@ -170,6 +174,128 @@ class DoubaoSearchGenerationAction(BaseAction):
             keys_to_remove = list(cls._request_cache.keys())[: -cls._cache_max_size // 2]
             for key in keys_to_remove:
                 del cls._request_cache[key]
+
+
+class PixivMoehuAction(BaseAction):
+    """Moehu图片API Action - 获取二次元/三次元/角色/游戏/动漫/表情包图片"""
+
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    mode_enable = ChatMode.ALL
+    parallel_action = True
+
+    action_name = "moehu_image"
+    action_description = "从moehu.org API获取并发送一张图片（支持多类型）"
+    action_parameters = {
+        "type": "图片类型(2d:二次元, 3d:三次元, vtuber:虚拟主播, character:角色系列, game:游戏系列, anime:动漫系列, emoji:表情包, 默认2d)"
+    }
+    action_require = [
+        "需要发送普通图片的场景",
+        "当他人让你发送一张图片时",
+        "当他人需要非R18图片时"
+    ]
+    associated_types = ["image"]
+
+    async def execute(self) -> tuple:
+        image_type = self.action_data.get("type")
+        try:
+            from .moehu_image_action import get_moehu_image
+            datauri = get_moehu_image(image_type)
+            # 只取datauri的base64部分
+            if datauri.startswith("data:image/"):
+                base64_image = datauri.split(",", 1)[-1]
+            else:
+                base64_image = datauri
+            await self.send_image(base64_image)
+            return True, f"已发送图片(type={image_type or '2d'})"
+        except Exception as e:
+            logger.warning(f"Moehu图片发送失败: {e}")
+            await self.send_text("图片获取失败，请稍后再试。")
+            return False, f"图片获取失败: {e}"
+
+
+class PixivRandomImageAction(BaseAction):
+    """Pixiv随机图片API Action - 获取Pixiv随机图片"""
+
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    mode_enable = ChatMode.ALL
+    parallel_action = True
+
+    action_name = "pixiv_random_image"
+    action_description = "从网络API获取并发送一张随机P站图（Pixiv API）"
+    action_parameters = {
+        "content_rating": "内容分级（0为全年龄，1为限制级，2为混合）",
+        "keyword": "可选，按关键词搜索图片,不允许空格,只允许一个词",
+        "tag": "可选，按标签搜索图片，多个标签用|分隔,如果没有要求,只用一个词,多tag无法获取到图片"
+    }
+    action_require = [
+        "需要发送P站图的场景",
+        "当他人让你发送一张P站图时"
+    ]
+    associated_types = ["image"]
+
+    async def execute(self) -> tuple:
+        content_rating = self.action_data.get("content_rating", 0)
+        keyword = self.action_data.get("keyword")
+        tag = self.action_data.get("tag")
+        try:
+            from .pixiv_image_action import get_random_pixiv_image
+            datauri = get_random_pixiv_image(content_rating, keyword, tag)
+            # 只取datauri的base64部分
+            if datauri.startswith("data:image/"):
+                base64_image = datauri.split(",", 1)[-1]
+            else:
+                base64_image = datauri
+            await self.send_image(base64_image)
+            return True, f"已发送Pixiv图片"
+        except Exception as e:
+            logger.warning(f"Pixiv图片发送失败: {e}")
+            await self.send_text("Pixiv图片获取失败，请稍后再试。")
+            return False, f"Pixiv图片获取失败: {e}"
+
+
+class PixivRank50Action(BaseAction):
+    """Pixiv排行榜图片API Action - 获取指定排名的Pixiv图片"""
+
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    mode_enable = ChatMode.ALL
+    parallel_action = True
+
+    action_name = "pixiv_rank50_image"
+    action_description = "获取Pixiv排行榜指定排名的图片（1-50，默认随机）"
+    action_parameters = {
+        "rank": "图片排名（1-50，留空为随机）"
+    }
+    action_require = [
+        "需要发送Pixiv排行榜图片的场景",
+        "当他人让你发送一张排行榜图片时"
+    ]
+    associated_types = ["image"]
+
+    async def execute(self) -> tuple:
+        rank = self.action_data.get("rank")
+        try:
+            from .PixivRank50 import get_pixiv_image_by_rank
+            # rank参数处理
+            if rank is not None:
+                try:
+                    rank = int(rank)
+                except Exception:
+                    rank = None
+            datauri = get_pixiv_image_by_rank(rank)
+            # 只取datauri的base64部分
+            if datauri.startswith("data:image/"):
+                base64_image = datauri.split(",", 1)[-1]
+            else:
+                base64_image = datauri
+            await self.send_image(base64_image)
+            return True, f"已发送Pixiv排行榜图片(rank={rank or '随机'})"
+        except Exception as e:
+            logger.warning(f"Pixiv排行榜图片发送失败: {e}")
+            await self.send_text("Pixiv排行榜图片获取失败，请稍后再试。")
+            return False, f"Pixiv排行榜图片获取失败: {e}"
 
 
 # ===== 插件主类 =====
@@ -240,5 +366,10 @@ class DoubaoSearchPlugin(BasePlugin):
         # 添加搜索Action
         if enable_search_action:
             components.append((DoubaoSearchGenerationAction.get_action_info(), DoubaoSearchGenerationAction))
+
+        # 注册Pixiv和moehu相关Action
+        components.append((PixivMoehuAction.get_action_info(), PixivMoehuAction))
+        components.append((PixivRandomImageAction.get_action_info(), PixivRandomImageAction))
+        components.append((PixivRank50Action.get_action_info(), PixivRank50Action))
 
         return components

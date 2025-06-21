@@ -36,6 +36,7 @@ from openai import OpenAI
 from .PixivRank50 import get_pixiv_image_by_rank
 from .pixiv_image_action import get_random_pixiv_image
 from .moehu_image_action import get_moehu_image
+from .generator_tools import generate_rewrite_reply
 
 logger = get_logger("doubao_search_plugin")
 
@@ -140,7 +141,19 @@ class DoubaoSearchGenerationAction(BaseAction):
 
             # 获取回复内容
             response_content = completion.choices[0].message.content or ""
-            await self.send_text(response_content)
+            # 使用 generator_tools 工具生成回复
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=response_content,
+                reason="豆包LLM生成的智能回复，请优化表达后发送给用户"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(response_content)
 
             # 发送一张Pixiv排行榜随机图片
             try:

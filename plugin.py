@@ -384,8 +384,20 @@ class BingSearchAction(BaseAction):
             return True, summary
         except Exception as e:
             logger.error(f"Bing搜索Action出错: {e}", exc_info=True)
-            await self.send_text(f"Bing搜索失败：{str(e)[:100]}")
-            return False, f"Bing搜索失败: {str(e)[:100]}"
+            fail_msg = f"未能搜索到“{query}”的相关内容，或发生错误：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=fail_msg,
+                reason="请用自然语言简要解释搜索失败的可能原因，并安慰用户。"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(fail_msg)
+            return False, fail_msg
 
 
 # ===== 插件主类 =====

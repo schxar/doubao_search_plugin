@@ -372,7 +372,7 @@ class BingSearchAction(BaseAction):
             result_status, result_message = await generate_rewrite_reply(
                 chat_stream=self.chat_stream,
                 raw_reply=summary,
-                reason="必应搜索结果润色后发送给用户"
+                reason="总结搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
             )
             if result_status:
                 for reply_seg in result_message:

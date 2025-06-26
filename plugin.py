@@ -249,23 +249,39 @@ class PixivRandomImageAction(BaseAction):
     associated_types = ["image"]
 
     async def execute(self) -> tuple:
+        import random
         content_rating = self.action_data.get("content_rating", 0)
         keyword = self.action_data.get("keyword")
         tag = self.action_data.get("tag")
-        try:
-            from .pixiv_image_action import get_random_pixiv_image
-            datauri = get_random_pixiv_image(content_rating, keyword, tag)
-            # 只取datauri的base64部分
-            if datauri.startswith("data:image/"):
-                base64_image = datauri.split(",", 1)[-1]
-            else:
-                base64_image = datauri
-            await self.send_image(base64_image)
-            return True, f"已发送Pixiv图片"
-        except Exception as e:
-            logger.warning(f"Pixiv图片发送失败: {e}")
-            await self.send_text("Pixiv图片获取失败，请稍后再试。")
-            return False, f"Pixiv图片获取失败: {e}"
+        from .pixiv_image_action import get_random_pixiv_image
+        max_attempts = 3
+        last_exception = None
+        for attempt in range(max_attempts):
+            try:
+                # 第一次用原始参数，后两次随机参数
+                if attempt == 0:
+                    cr = content_rating
+                    kw = keyword
+                    tg = tag
+                else:
+                    cr = random.choice([0, 1, 2])
+                    kw = None
+                    tg = None
+                datauri = get_random_pixiv_image(cr, kw, tg)
+                # 只取datauri的base64部分
+                if datauri.startswith("data:image/"):
+                    base64_image = datauri.split(",", 1)[-1]
+                else:
+                    base64_image = datauri
+                await self.send_image(base64_image)
+                return True, f"已发送Pixiv图片"
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"Pixiv图片发送失败(第{attempt+1}次): {e}")
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(3)
+        await self.send_text("Pixiv图片获取失败，请稍后再试。")
+        return False, f"Pixiv图片获取失败: {last_exception}"
 
 
 class PixivRank50Action(BaseAction):
@@ -309,6 +325,67 @@ class PixivRank50Action(BaseAction):
             logger.warning(f"Pixiv排行榜图片发送失败: {e}")
             await self.send_text("Pixiv排行榜图片获取失败，请稍后再试。")
             return False, f"Pixiv排行榜图片获取失败: {e}"
+
+
+class BingSearchAction(BaseAction):
+    """必应搜索并润色结果Action"""
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    mode_enable = ChatMode.ALL
+    parallel_action = True
+
+    action_name = "bing_search"
+    action_description = "通过必应搜索并用LLM润色结果后返回"
+    activation_keywords = ["bing", "必应", "网页搜索", "网络搜索", "bing搜索"]
+    keyword_case_sensitive = False
+    llm_judge_prompt = """
+判定是否需要使用必应搜索动作的条件：
+1. 用户明确要求网络搜索、bing搜索、网页查询等
+2. 用户提出了需要查找互联网最新信息的问题
+"""
+    action_parameters = {
+        "query": "用户查询内容，输入需要搜索的问题，必填",
+    }
+    action_require = [
+        "当用户需要网络搜索时使用",
+        "当用户需要获取互联网最新信息时使用",
+    ]
+    associated_types = ["text"]
+
+    async def execute(self) -> tuple:
+        query = self.action_data.get("query")
+        if not query or not query.strip():
+            await self.send_text("你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'")
+            return False, "查询内容为空"
+        query = query.strip()
+        try:
+            from .bing_search_tool import search_bing
+            results = search_bing(query, num_results=5)
+            if not results:
+                await self.send_text(f"没有搜索到与“{query}”相关的内容。")
+                return False, "无搜索结果"
+            # 简单拼接搜索摘要
+            summary = "\n".join([
+                f"[{item['rank']}] {item['title']}\n{item['abstract']}\n链接: {item['url']}" for item in results
+            ])
+            # 只用 generator_tools 润色，不用LLM再润色
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=summary,
+                reason="必应搜索结果润色后发送给用户"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(summary)
+            return True, summary
+        except Exception as e:
+            logger.error(f"Bing搜索Action出错: {e}", exc_info=True)
+            await self.send_text(f"Bing搜索失败：{str(e)[:100]}")
+            return False, f"Bing搜索失败: {str(e)[:100]}"
 
 
 # ===== 插件主类 =====
@@ -379,6 +456,8 @@ class DoubaoSearchPlugin(BasePlugin):
         # 添加搜索Action
         if enable_search_action:
             components.append((DoubaoSearchGenerationAction.get_action_info(), DoubaoSearchGenerationAction))
+            # 注册Bing搜索Action
+            components.append((BingSearchAction.get_action_info(), BingSearchAction))
 
         # 注册Pixiv和moehu相关Action
         components.append((PixivMoehuAction.get_action_info(), PixivMoehuAction))

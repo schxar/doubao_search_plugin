@@ -37,6 +37,7 @@ from .PixivRank50 import get_pixiv_image_by_rank
 from .pixiv_image_action import get_random_pixiv_image
 from .moehu_image_action import get_moehu_image
 from .generator_tools import generate_rewrite_reply
+from .duckduckgo_tool import duckduckgo_search
 
 logger = get_logger("doubao_search_plugin")
 
@@ -355,14 +356,38 @@ class BingSearchAction(BaseAction):
     async def execute(self) -> tuple:
         query = self.action_data.get("query")
         if not query or not query.strip():
-            await self.send_text("你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'")
+            fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=fail_msg,
+                reason="请用自然语言友好地提醒用户输入搜索内容，并举例。"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(fail_msg)
             return False, "查询内容为空"
         query = query.strip()
         try:
             from .bing_search_tool import search_bing
             results = search_bing(query, num_results=5)
             if not results:
-                await self.send_text(f"没有搜索到与“{query}”相关的内容。")
+                fail_msg = f"没有搜索到与“{query}”相关的内容。"
+                result_status, result_message = await generate_rewrite_reply(
+                    chat_stream=self.chat_stream,
+                    raw_reply=fail_msg,
+                    reason="请用自然语言简要解释无搜索结果的可能原因，并安慰用户。"
+                )
+                if result_status:
+                    for reply_seg in result_message:
+                        data = reply_seg[1]
+                        await self.send_text(data)
+                        await asyncio.sleep(1.0)
+                else:
+                    await self.send_text(fail_msg)
                 return False, "无搜索结果"
             # 简单拼接搜索摘要
             summary = "\n".join([
@@ -389,6 +414,101 @@ class BingSearchAction(BaseAction):
                 chat_stream=self.chat_stream,
                 raw_reply=fail_msg,
                 reason="请用自然语言简要解释搜索失败的可能原因，并安慰用户。"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(fail_msg)
+            return False, fail_msg
+
+
+class DuckDuckGoSearchAction(BaseAction):
+    """DuckDuckGo 搜索 Action"""
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    mode_enable = ChatMode.ALL
+    parallel_action = True
+
+    action_name = "duckduckgo_search"
+    action_description = "通过 DuckDuckGo 搜索并返回结果摘要"
+    activation_keywords = ["duckduckgo", "ddg", "网页搜索", "网络搜索", "duckduckgo搜索"]
+    keyword_case_sensitive = False
+    llm_judge_prompt = """
+判定是否需要使用 DuckDuckGo 搜索动作的条件：
+1. 用户明确要求 DuckDuckGo、ddg、网页查询等
+2. 用户提出了需要查找互联网信息的问题
+"""
+    action_parameters = {
+        "query": "用户查询内容，输入需要搜索的问题，必填",
+    }
+    action_require = [
+        "当用户需要 DuckDuckGo 网络搜索时使用",
+        "当用户需要获取互联网信息时使用",
+    ]
+    associated_types = ["text"]
+
+    async def execute(self) -> tuple:
+        query = self.action_data.get("query")
+        if not query or not query.strip():
+            fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=fail_msg,
+                reason="请用自然语言友好地提醒用户输入DuckDuckGo搜索内容，并举例。"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(fail_msg)
+            return False, "查询内容为空"
+        query = query.strip()
+        try:
+            results = duckduckgo_search(query)
+            if not results.get("success") or not results.get("results"):
+                fail_msg = f"没有搜索到与“{query}”相关的内容。请简要解释可能的原因并安慰用户。"
+                result_status, result_message = await generate_rewrite_reply(
+                    chat_stream=self.chat_stream,
+                    raw_reply=fail_msg,
+                    reason="请用自然语言简要解释DuckDuckGo搜索无结果的可能原因，并安慰用户。"
+                )
+                if result_status:
+                    for reply_seg in result_message:
+                        data = reply_seg[1]
+                        await self.send_text(data)
+                        await asyncio.sleep(1.0)
+                else:
+                    await self.send_text(fail_msg)
+                return False, "无搜索结果"
+            summary = "\n".join([
+                f"[{i+1}] {item['title']}\n{item['snippet']}\n链接: {item['url']}" for i, item in enumerate(results["results"])
+            ])
+            # 使用generate_rewrite_reply润色后再发送
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=summary,
+                reason="总结DuckDuckGo搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
+            )
+            if result_status:
+                for reply_seg in result_message:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.0)
+            else:
+                await self.send_text(summary)
+            return True, summary
+        except Exception as e:
+            logger.error(f"DuckDuckGo搜索Action出错: {e}", exc_info=True)
+            fail_msg = f"DuckDuckGo搜索失败：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
+            result_status, result_message = await generate_rewrite_reply(
+                chat_stream=self.chat_stream,
+                raw_reply=fail_msg,
+                reason="请用自然语言简要解释DuckDuckGo搜索失败的可能原因，并安慰用户。"
             )
             if result_status:
                 for reply_seg in result_message:
@@ -470,6 +590,8 @@ class DoubaoSearchPlugin(BasePlugin):
             components.append((DoubaoSearchGenerationAction.get_action_info(), DoubaoSearchGenerationAction))
             # 注册Bing搜索Action
             components.append((BingSearchAction.get_action_info(), BingSearchAction))
+            # 注册DuckDuckGo搜索Action
+            components.append((DuckDuckGoSearchAction.get_action_info(), DuckDuckGoSearchAction))
 
         # 注册Pixiv和moehu相关Action
         components.append((PixivMoehuAction.get_action_info(), PixivMoehuAction))

@@ -36,6 +36,40 @@ AI：2025年高考时间为6月7日至9日，具体安排可参考教育部官�
 
 如需自定义回复风格或链接展示方式，可修改 `plugin.py` 中 `BingSearchAction` 的实现。
 
+## 新增：DuckDuckGo搜索Action说明
+
+插件现已内置 DuckDuckGo 网页搜索能力，支持通过 DuckDuckGo 搜索互联网内容，并自动用AI润色后回复，且回复中会包含真实网页链接。
+
+- **DuckDuckGoSearchAction**：通过 `duckduckgo`、`ddg`、`网页搜索` 等关键词或LLM判定自动触发，自动抓取 DuckDuckGo 搜索结果，智能摘要并润色，回复中会保留至少一个原始网页链接。
+- 适用场景：用户需要获取互联网信息、查找网页内容、需要带来源的智能摘要时。
+- 触发方式：对话中包含如“duckduckgo搜索xxx”“ddg查找xxx”等关键词，或AI判定需要联网搜索时自动触发。
+- 返回内容：AI会根据 DuckDuckGo 搜索结果自动生成简明、准确、友好的自然语言回复，并附带真实网页链接。
+
+**示例：**
+
+```
+用户：duckduckgo搜索2025年高考时间
+AI：2025年高考时间为6月7日至9日，具体安排可参考教育部官网。更多信息请见：[教育部通知链接](https://www.example.com/xxx)
+```
+
+如需自定义回复风格或链接展示方式，可修改 `plugin.py` 中 `DuckDuckGoSearchAction` 的实现。
+
+## DuckDuckGo依赖环境说明
+
+DuckDuckGo搜索功能依赖Selenium自动化浏览器，需要以下环境支持：
+
+- Python依赖（已在 `requirements.txt` 中声明）：
+  selenium>=4.0.0
+  webdriver-manager>=3.0.0
+  beautifulsoup4>=4.0.0
+- 需要本地已安装 Google Chrome 浏览器（建议使用最新版）。
+  - Windows 用户可前往 [Chrome官方下载页面](https://www.google.cn/chrome/) 下载并安装。
+  - Mac/Linux 用户请根据各自系统安装。
+
+- 插件首次运行时会自动下载并管理对应版本的 ChromeDriver。
+
+如遇到浏览器或驱动相关报错，请检查 Chrome 是否已正确安装，或尝试手动升级 Chrome 及 ChromeDriver。
+
 ## 配置文件说明
 插件需要一个名为 `config.toml` 的配置文件来运行。如果您发现配置文件被重命名或丢失，请按照以下步骤操作：
 

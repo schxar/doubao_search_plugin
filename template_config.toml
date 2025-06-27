@@ -46,6 +46,16 @@ max_size = 10
 
 # 是否启用搜索Action
 enable_search_action = true
+# 是否启用Bing搜索Action
+enable_bing_action = true
+# 是否启用DuckDuckGo搜索Action
+enable_duckduckgo_action = true
+# 是否启用Moehu图片Action
+enable_pixiv_moehu_action = true
+# 是否启用Pixiv随机图片Action
+enable_pixiv_random_action = true
+# 是否启用Pixiv排行榜图片Action
+enable_pixiv_rank50_action = true
 
 
 

@@ -573,7 +573,12 @@ class DoubaoSearchPlugin(BasePlugin):
             "max_size": ConfigField(type=int, default=10, description="最大缓存数量"),
         },
         "components": {
-            "enable_search_action": ConfigField(type=bool, default=True, description="是否启用搜索Action")
+            "enable_search_action": ConfigField(type=bool, default=True, description="是否启用搜索Action"),
+            "enable_bing_action": ConfigField(type=bool, default=True, description="是否启用Bing搜索Action"),
+            "enable_duckduckgo_action": ConfigField(type=bool, default=True, description="是否启用DuckDuckGo搜索Action"),
+            "enable_pixiv_moehu_action": ConfigField(type=bool, default=True, description="是否启用Moehu图片Action"),
+            "enable_pixiv_random_action": ConfigField(type=bool, default=True, description="是否启用Pixiv随机图片Action"),
+            "enable_pixiv_rank50_action": ConfigField(type=bool, default=True, description="是否启用Pixiv排行榜图片Action"),
         },
     }
 
@@ -582,20 +587,26 @@ class DoubaoSearchPlugin(BasePlugin):
 
         # 从配置获取组件启用状态
         enable_search_action = self.get_config("components.enable_search_action", True)
+        enable_bing_action = self.get_config("components.enable_bing_action", True)
+        enable_duckduckgo_action = self.get_config("components.enable_duckduckgo_action", True)
+        enable_pixiv_moehu_action = self.get_config("components.enable_pixiv_moehu_action", True)
+        enable_pixiv_random_action = self.get_config("components.enable_pixiv_random_action", True)
+        enable_pixiv_rank50_action = self.get_config("components.enable_pixiv_rank50_action", True)
 
         components = []
 
         # 添加搜索Action
         if enable_search_action:
             components.append((DoubaoSearchGenerationAction.get_action_info(), DoubaoSearchGenerationAction))
-            # 注册Bing搜索Action
+        if enable_bing_action:
             components.append((BingSearchAction.get_action_info(), BingSearchAction))
-            # 注册DuckDuckGo搜索Action
+        if enable_duckduckgo_action:
             components.append((DuckDuckGoSearchAction.get_action_info(), DuckDuckGoSearchAction))
-
-        # 注册Pixiv和moehu相关Action
-        components.append((PixivMoehuAction.get_action_info(), PixivMoehuAction))
-        components.append((PixivRandomImageAction.get_action_info(), PixivRandomImageAction))
-        components.append((PixivRank50Action.get_action_info(), PixivRank50Action))
+        if enable_pixiv_moehu_action:
+            components.append((PixivMoehuAction.get_action_info(), PixivMoehuAction))
+        if enable_pixiv_random_action:
+            components.append((PixivRandomImageAction.get_action_info(), PixivRandomImageAction))
+        if enable_pixiv_rank50_action:
+            components.append((PixivRank50Action.get_action_info(), PixivRank50Action))
 
         return components

@@ -2,6 +2,8 @@ from typing import List, Dict
 import requests
 from bs4 import BeautifulSoup
 import random
+import os
+import toml
 
 # 可选：你可以根据需要扩展 user_agents
 user_agents = [
@@ -20,6 +22,22 @@ HEADERS = {
 BING_SEARCH_URL = "https://www.bing.com/search?q="
 ABSTRACT_MAX_LENGTH = 300
 
+# 读取代理配置，优先从config.toml读取[proxy]节
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.toml')
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+PROXIES = None
+try:
+    if os.path.exists(CONFIG_PATH):
+        config = toml.load(CONFIG_PATH)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+        if use_proxy and proxy_url:
+            PROXIES = {"http": proxy_url, "https": proxy_url}
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
+
 def search_bing(query: str, num_results: int = 10) -> List[Dict]:
     """
     输入query，返回必应搜索结果列表，每项包含title、url、abstract、rank。
@@ -31,7 +49,7 @@ def search_bing(query: str, num_results: int = 10) -> List[Dict]:
     headers = HEADERS.copy()
     headers["User-Agent"] = random.choice(user_agents)
     try:
-        resp = requests.get(url, headers=headers, timeout=8)
+        resp = requests.get(url, headers=headers, timeout=8, proxies=PROXIES)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
         items = soup.select("li.b_algo")

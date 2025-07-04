@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 import asyncio
 from functools import partial
+import toml
 
 CACHE_DIR = Path("cache/pixiv_ranking")
 CACHE_FILE = CACHE_DIR / "ranking.json"
@@ -14,13 +15,21 @@ CACHE_EXPIRE = 12 * 60 * 60  # 12小时缓存
 
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-# 读取代理配置
-PROXY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "proxy_setting.json")
-if os.path.exists(PROXY_CONFIG_PATH):
-    with open(PROXY_CONFIG_PATH, "r", encoding="utf-8") as f:
-        PROXIES = json.load(f)
-else:
-    PROXIES = None
+# 读取代理配置，优先从config.toml读取[proxy]节
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.toml')
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+PROXIES = None
+try:
+    if os.path.exists(CONFIG_PATH):
+        config = toml.load(CONFIG_PATH)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+        if use_proxy and proxy_url:
+            PROXIES = {"http": proxy_url, "https": proxy_url}
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
 
 def _get_ranking_data_sync():
     """同步获取排行榜数据，带缓存机制"""

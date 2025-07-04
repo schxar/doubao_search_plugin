@@ -23,6 +23,7 @@ import base64
 import traceback
 import os
 from typing import List, Tuple, Type, Optional
+import toml
 
 # 导入新插件系统
 from src.plugin_system.base.base_plugin import BasePlugin
@@ -42,6 +43,25 @@ from .duckduckgo_tool import duckduckgo_search
 logger = get_logger("doubao_search_plugin")
 
 
+# 读取代理配置并设置环境变量
+try:
+    config_path = os.path.join(os.path.dirname(__file__), 'config.toml')
+    if not os.path.exists(config_path):
+        config_path = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+    proxy_url = None
+    use_proxy = False
+    if os.path.exists(config_path):
+        config = toml.load(config_path)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+    if use_proxy and proxy_url:
+        os.environ['HTTP_PROXY'] = proxy_url
+        os.environ['HTTPS_PROXY'] = proxy_url
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
+
+
 # ===== Action组件 =====
 
 
@@ -49,15 +69,15 @@ class DoubaoSearchGenerationAction(BaseAction):
     """豆包搜索生成Action - 根据描述使用OpenAI标准参数系统生成智能回复"""
 
     # 激活设置
-    focus_activation_type = ActionActivationType.LLM_JUDGE  # Focus模式使用LLM判定，精确理解需求
-    normal_activation_type = ActionActivationType.KEYWORD  # Normal模式使用关键词激活，快速响应
+    focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
+    normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
     mode_enable = ChatMode.ALL
     parallel_action = True
 
     # 动作基本信息
     action_name = "doubao_llm_search"
     action_description = (
-        "可以根据用户输入，通过火山引擎豆包的搜索LLM生成智能回复或结果。"
+        "可以根据用户输入，通过火山引擎豆包的搜索LLM生成智能回复或结果。支持查询天气、知识问答等。"
     )
 
     # 关键词设置（用于Normal模式）
@@ -67,20 +87,21 @@ class DoubaoSearchGenerationAction(BaseAction):
     # LLM判定提示词（用于Focus模式）
     llm_judge_prompt = """
 判定是否需要使用LLM搜索动作的条件：
-1. 用户明确要求搜索、查询或获取智能回复
-2. 用户提出了需要回答的问题或需要进一步解释的内容
-3. 对话中提到需要智能化的回答或信息生成
+1. 用户明确要求搜索、查询、获取智能回复或查询天气
+2. 用户提出了需要回答的问题、需要进一步解释的内容，或需要获取天气信息
+3. 对话中提到需要智能化的回答、信息生成或天气查询
 
 适合使用的情况：
-- "搜索..."、"查询..."、"回答..."
+- "搜索..."、"查询..."、"回答..."、"今天天气怎么样"、"帮我查下北京天气"
 - "能帮我找到...吗"
 - "解释一下..."
 - "生成一个关于...的回复"
+- "请告诉我明天上海的天气"
 
 绝对不要使用的情况：
-1. 用户明确表示不需要搜索或智能回复
+1. 用户明确表示不需要搜索、智能回复或天气查询
 2. 用户仅进行闲聊或无具体问题
-3. 用户要求执行其他非搜索相关的功能
+3. 用户要求执行其他非搜索/天气相关的功能
 """
 
     # 动作参数定义
@@ -93,6 +114,7 @@ class DoubaoSearchGenerationAction(BaseAction):
         "当用户提出问题或需要智能化回答时使用",
         "当用户要求查询或搜索具体信息时使用",
         "当用户需要基于上下文的多轮对话支持时使用",
+        "当用户需要获取天气信息时使用",
     ]
 
     # 关联类型
@@ -336,13 +358,15 @@ class BingSearchAction(BaseAction):
     parallel_action = True
 
     action_name = "bing_search"
-    action_description = "通过必应搜索并用LLM润色结果后返回"
-    activation_keywords = ["bing", "必应", "网页搜索", "网络搜索", "bing搜索"]
+    action_description = "通过必应搜索并用LLM润色结果后返回（不适用于天气查询）"
+    activation_keywords = ["bing", "必应", "bing搜索"]
     keyword_case_sensitive = False
     llm_judge_prompt = """
 判定是否需要使用必应搜索动作的条件：
-1. 用户明确要求网络搜索、bing搜索、网页查询等
-2. 用户提出了需要查找互联网最新信息的问题
+1. 用户明确要求网络搜索、bing搜索、网页查询等（不包括天气查询）
+2. 用户提出了需要查找互联网最新信息的问题，但不是天气相关内容
+
+绝对不要用于天气查询。
 """
     action_parameters = {
         "query": "用户查询内容，输入需要搜索的问题，必填",
@@ -542,6 +566,7 @@ class DoubaoSearchPlugin(BasePlugin):
         "api": "API相关配置，包含火山引擎API的访问信息",
         "cache": "结果缓存配置",
         "components": "组件启用配置",
+        "proxy": "HTTP/HTTPS 代理配置",
     }
 
     # 配置Schema定义
@@ -579,6 +604,10 @@ class DoubaoSearchPlugin(BasePlugin):
             "enable_pixiv_moehu_action": ConfigField(type=bool, default=True, description="是否启用Moehu图片Action"),
             "enable_pixiv_random_action": ConfigField(type=bool, default=True, description="是否启用Pixiv随机图片Action"),
             "enable_pixiv_rank50_action": ConfigField(type=bool, default=True, description="是否启用Pixiv排行榜图片Action"),
+        },
+        "proxy": {
+            "use_proxy": ConfigField(type=bool, default=False, description="是否启用HTTP/HTTPS代理"),
+            "proxy_url": ConfigField(type=str, default="http://127.0.0.1:7897", description="HTTP/HTTPS代理地址"),
         },
     }
 

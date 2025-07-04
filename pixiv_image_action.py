@@ -1,13 +1,33 @@
 import base64
 import requests
+import os
+import toml
 
-def get_random_pixiv_image(content_rating=0, keyword=None, tag=None, proxy="http://127.0.0.1:7897"):
+# 读取代理配置，优先从config.toml读取[proxy]节
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.toml')
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+PROXIES = None
+try:
+    if os.path.exists(CONFIG_PATH):
+        config = toml.load(CONFIG_PATH)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+        if use_proxy and proxy_url:
+            PROXIES = {"http": proxy_url, "https": proxy_url}
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
+if PROXIES is None:
+    PROXIES = {"http": "http://127.0.0.1:7897", "https": "http://127.0.0.1:7897"}
+
+def get_random_pixiv_image(content_rating=0, keyword=None, tag=None, proxy=None):
     """
     获取一张随机Pixiv图片，返回datauri格式的base64 jpg图片。
     :param content_rating: 0为全年龄，1为限制级，2为混合
     :param keyword: 可选，关键词
     :param tag: 可选，标签，多个用|分隔
-    :param proxy: 代理地址
+    :param proxy: 代理地址（如不传则自动读取config）
     :return: datauri格式的base64 jpg图片
     :raises: Exception 获取失败时抛出异常
     """
@@ -22,7 +42,7 @@ def get_random_pixiv_image(content_rating=0, keyword=None, tag=None, proxy="http
         payload["keyword"] = keyword
     if tag:
         payload["tag"] = tag.split("|") if "|" in tag else [tag]
-    proxies = {"http": proxy, "https": proxy}
+    proxies = {"http": proxy, "https": proxy} if proxy else PROXIES
     resp = requests.post(api_url, json=payload, timeout=10, proxies=proxies)
     resp.raise_for_status()
     data = resp.json()

@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, redirect
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -10,6 +10,9 @@ import os
 import json
 import hashlib
 from datetime import datetime, timedelta
+
+os.environ['HTTP_PROXY'] = 'http://127.0.0.1:7897'
+os.environ['HTTPS_PROXY'] = 'http://127.0.0.1:7897'
 
 app = Flask(__name__)
 
@@ -74,7 +77,7 @@ def duckduckgo_search(query: str, cache_dir: str) -> dict:
         
         # 配置Chrome选项 - 启用headless并模拟普通用户
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
+        #chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--window-size=1920,1080")
@@ -210,6 +213,10 @@ def duckduckgo_test():
                 return render_template_string(HTML_TEMPLATE, query=query, results=result['results'])
             
     return render_template_string(HTML_TEMPLATE, query='', results=None)
+
+@app.route('/')
+def index():
+    return redirect('/duckduckgo_test')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

@@ -3,13 +3,24 @@ import base64
 import requests
 import random
 import json
+import toml
 
-# 读取代理配置，兼容PixivRank50的方式
-PROXY_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "proxy_setting.json")
-if os.path.exists(PROXY_CONFIG_PATH):
-    with open(PROXY_CONFIG_PATH, "r", encoding="utf-8") as f:
-        PROXIES = json.load(f)
-else:
+# 读取代理配置，优先从config.toml读取[proxy]节
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.toml')
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+PROXIES = None
+try:
+    if os.path.exists(CONFIG_PATH):
+        config = toml.load(CONFIG_PATH)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+        if use_proxy and proxy_url:
+            PROXIES = {"http": proxy_url, "https": proxy_url}
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
+if PROXIES is None:
     PROXIES = {"http": "http://127.0.0.1:7897", "https": "http://127.0.0.1:7897"}
 
 def get_moehu_image(image_type=None, proxy=None):

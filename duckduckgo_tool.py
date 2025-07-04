@@ -10,6 +10,25 @@ import os
 import json
 from datetime import datetime, timedelta
 import hashlib
+import toml
+    
+# 读取代理配置
+try:
+    config_path = os.path.join(os.path.dirname(__file__), 'config.toml')
+    if not os.path.exists(config_path):
+        config_path = os.path.join(os.path.dirname(__file__), '..', 'config.toml')
+    proxy_url = None
+    use_proxy = False
+    if os.path.exists(config_path):
+        config = toml.load(config_path)
+        proxy_cfg = config.get('proxy', {})
+        use_proxy = proxy_cfg.get('use_proxy', False)
+        proxy_url = proxy_cfg.get('proxy_url', '')
+    if use_proxy and proxy_url:
+        os.environ['HTTP_PROXY'] = proxy_url
+        os.environ['HTTPS_PROXY'] = proxy_url
+except Exception as e:
+    print(f"代理配置读取失败: {e}")
 
 from src.common.logger import get_logger
 

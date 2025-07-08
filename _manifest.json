@@ -5,15 +5,15 @@
   "description": "基于火山引擎豆包模型的AI搜索插件，支持智能LLM判定和高效搜索功能。",
   "author": {
     "name": "Schxar",
-    "url": "https://github.com/schxar/doubao_search_plugin/tree/main"
+    "url": "https://github.com/schxar/doubao_search_plugin"
   },
   "license": "GPL-v3.0-or-later",
   "host_application": {
     "min_version": "0.8.0",
     "max_version": "0.8.0"
   },
-  "homepage_url": "https://github.com/schxar/doubao_search_plugin/tree/main",
-  "repository_url": "https://github.com/schxar/doubao_search_plugin/tree/main",
+  "homepage_url": "https://github.com/schxar/doubao_search_plugin",
+  "repository_url": "https://github.com/schxar/doubao_search_plugin",
   "keywords": ["ai", "search", "doubao", "volcengine", "query"],
   "categories": ["AI Tools", "Search", "Content Retrieval"],
   "default_locale": "zh-CN",

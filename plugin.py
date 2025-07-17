@@ -178,19 +178,6 @@ class DoubaoSearchGenerationAction(BaseAction):
             else:
                 await self.send_text(response_content)
 
-            # 发送一张Pixiv排行榜随机图片
-            try:
-                
-                img_datauri = get_pixiv_image_by_rank(None)
-                # 只取datauri的base64部分
-                if img_datauri.startswith("data:image/"):
-                    base64_image = img_datauri.split(",", 1)[-1]
-                else:
-                    base64_image = img_datauri
-                await self.send_image(base64_image)
-            except Exception as e:
-                logger.warning(f"Pixiv排行榜图片发送失败: {e}")
-
             return True, response_content
 
         except Exception as e:

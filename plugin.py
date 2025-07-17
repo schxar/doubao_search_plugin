@@ -72,7 +72,7 @@ class DoubaoSearchGenerationAction(BaseAction):
     focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
     normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     # 动作基本信息
     action_name = "doubao_llm_search"
@@ -177,19 +177,6 @@ class DoubaoSearchGenerationAction(BaseAction):
                     await asyncio.sleep(1.0)
             else:
                 await self.send_text(response_content)
-
-            # 发送一张Pixiv排行榜随机图片
-            try:
-                
-                img_datauri = get_pixiv_image_by_rank(None)
-                # 只取datauri的base64部分
-                if img_datauri.startswith("data:image/"):
-                    base64_image = img_datauri.split(",", 1)[-1]
-                else:
-                    base64_image = img_datauri
-                await self.send_image(base64_image)
-            except Exception as e:
-                logger.warning(f"Pixiv排行榜图片发送失败: {e}")
 
             return True, response_content
 

@@ -72,7 +72,7 @@ class DoubaoSearchGenerationAction(BaseAction):
     focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
     normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     # 动作基本信息
     action_name = "doubao_llm_search"

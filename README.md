@@ -1,5 +1,6 @@
 
-# doubao_search_plugin
+# doubao_search_plugin 090灰度测试版本插件
+# 081版本的插件在branch上，此处仅为090灰度测试版本插件
 
 ## 概述
 

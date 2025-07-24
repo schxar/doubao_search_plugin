@@ -72,7 +72,7 @@ class DoubaoSearchGenerationAction(BaseAction):
     focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
     normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     # 动作基本信息
     action_name = "doubao_llm_search"
@@ -178,7 +178,7 @@ class DoubaoSearchGenerationAction(BaseAction):
             else:
                 await self.send_text(response_content)
 
-            # 发送一张Pixiv排行榜随机图片
+            # 发送一张Pixiv排行榜随机图片    
             try:
                 
                 img_datauri = get_pixiv_image_by_rank(None)
@@ -218,7 +218,7 @@ class PixivMoehuAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "moehu_image"
     action_description = "从moehu.org API获取并发送一张图片（支持多类型）"
@@ -256,7 +256,7 @@ class PixivRandomImageAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "pixiv_random_image"
     action_description = "从网络API获取并发送一张随机P站图（Pixiv API）"
@@ -313,7 +313,7 @@ class PixivRank50Action(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "pixiv_rank50_image"
     action_description = "获取Pixiv排行榜指定排名的图片（1-50，默认随机）"
@@ -355,7 +355,7 @@ class BingSearchAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "bing_search"
     action_description = "通过必应搜索并用LLM润色结果后返回（不适用于天气查询）"
@@ -454,7 +454,7 @@ class DuckDuckGoSearchAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "duckduckgo_search"
     action_description = "通过 DuckDuckGo 搜索并返回结果摘要"

@@ -27,18 +27,34 @@ import toml
 
 # 导入新插件系统
 from src.plugin_system.base.base_plugin import BasePlugin
-from src.plugin_system.base.base_plugin import register_plugin
-from src.plugin_system.base.base_action import BaseAction
-from src.plugin_system.base.component_types import ComponentInfo, ActionActivationType, ChatMode
+from src.plugin_system.apis.plugin_register_api import register_plugin
+from src.plugin_system.base.base_action import BaseAction, ActionActivationType, ChatMode
+from src.plugin_system.base.base_command import BaseCommand
+from src.plugin_system.base.component_types import ComponentInfo
 from src.plugin_system.base.config_types import ConfigField
+from src.plugin_system.apis import generator_api
+from src.plugin_system.apis import database_api
+from src.plugin_system.apis import config_api
+from src.common.database.database_model import Messages, PersonInfo
+from src.person_info.person_info import get_person_info_manager
 from src.common.logger import get_logger
+from PIL import Image
+from typing import Tuple, Dict, Optional, List, Any, Type
+from pathlib import Path
+import traceback
+import tomlkit
+import json
+import random
+import asyncio
+import aiohttp
+import base64
+import toml
+import io
+import os
+import re
 from openai import OpenAI
 
-from .PixivRank50 import get_pixiv_image_by_rank
-from .pixiv_image_action import get_random_pixiv_image
-from .moehu_image_action import get_moehu_image
-from .generator_tools import generate_rewrite_reply
-from .duckduckgo_tool import duckduckgo_search
+
 
 logger = get_logger("doubao_search_plugin")
 
@@ -72,7 +88,7 @@ class DoubaoSearchGenerationAction(BaseAction):
     focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
     normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     # 动作基本信息
     action_name = "doubao_llm_search"
@@ -164,11 +180,16 @@ class DoubaoSearchGenerationAction(BaseAction):
 
             # 获取回复内容
             response_content = completion.choices[0].message.content or ""
-            # 使用 generator_tools 工具生成回复
-            result_status, result_message = await generate_rewrite_reply(
+
+            # 统一使用 generator_api.rewrite_reply
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=response_content,
-                reason="豆包LLM生成的智能回复，请优化表达后发送给用户"
+                reply_data={
+                    "raw_reply": response_content,
+                    "reason": "豆包LLM生成的智能回复，请优化表达后发送给用户"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -178,18 +199,20 @@ class DoubaoSearchGenerationAction(BaseAction):
             else:
                 await self.send_text(response_content)
 
-            # 发送一张Pixiv排行榜随机图片
-            try:
-                
-                img_datauri = get_pixiv_image_by_rank(None)
-                # 只取datauri的base64部分
-                if img_datauri.startswith("data:image/"):
-                    base64_image = img_datauri.split(",", 1)[-1]
-                else:
-                    base64_image = img_datauri
-                await self.send_image(base64_image)
-            except Exception as e:
-                logger.warning(f"Pixiv排行榜图片发送失败: {e}")
+            # 根据配置决定是否发送Pixiv排行榜图片
+            enable_pixiv_rank50_on_search = self.get_config("components.enable_pixiv_rank50_on_search", False)
+            if enable_pixiv_rank50_on_search:
+                try:
+                    from .PixivRank50 import get_pixiv_image_by_rank
+                    img_datauri = get_pixiv_image_by_rank(None)
+                    # 只取datauri的base64部分
+                    if img_datauri.startswith("data:image/"):
+                        base64_image = img_datauri.split(",", 1)[-1]
+                    else:
+                        base64_image = img_datauri
+                    await self.send_image(base64_image)
+                except Exception as e:
+                    logger.warning(f"Pixiv排行榜图片发送失败: {e}")
 
             return True, response_content
 
@@ -218,7 +241,7 @@ class PixivMoehuAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "moehu_image"
     action_description = "从moehu.org API获取并发送一张图片（支持多类型）"
@@ -235,7 +258,12 @@ class PixivMoehuAction(BaseAction):
     async def execute(self) -> tuple:
         image_type = self.action_data.get("type")
         try:
-            from .moehu_image_action import get_moehu_image
+            try:
+                from .moehu_image_action import get_moehu_image
+            except ImportError as e:
+                logger.warning(f"moehu_image_action模块导入失败: {e}")
+                await self.send_text("Moehu图片功能未安装或缺失，请联系管理员补全依赖。")
+                return False, "moehu_image_action模块导入失败"
             datauri = get_moehu_image(image_type)
             # 只取datauri的base64部分
             if datauri.startswith("data:image/"):
@@ -256,7 +284,7 @@ class PixivRandomImageAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "pixiv_random_image"
     action_description = "从网络API获取并发送一张随机P站图（Pixiv API）"
@@ -276,7 +304,12 @@ class PixivRandomImageAction(BaseAction):
         content_rating = self.action_data.get("content_rating", 0)
         keyword = self.action_data.get("keyword")
         tag = self.action_data.get("tag")
-        from .pixiv_image_action import get_random_pixiv_image
+        try:
+            from .pixiv_image_action import get_random_pixiv_image
+        except ImportError as e:
+            logger.warning(f"pixiv_image_action模块导入失败: {e}")
+            await self.send_text("Pixiv图片功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "pixiv_image_action模块导入失败"
         max_attempts = 3
         last_exception = None
         for attempt in range(max_attempts):
@@ -313,7 +346,7 @@ class PixivRank50Action(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "pixiv_rank50_image"
     action_description = "获取Pixiv排行榜指定排名的图片（1-50，默认随机）"
@@ -329,7 +362,12 @@ class PixivRank50Action(BaseAction):
     async def execute(self) -> tuple:
         rank = self.action_data.get("rank")
         try:
-            from .PixivRank50 import get_pixiv_image_by_rank
+            try:
+                from .PixivRank50 import get_pixiv_image_by_rank
+            except ImportError as e:
+                logger.warning(f"PixivRank50模块导入失败: {e}")
+                await self.send_text("Pixiv排行榜图片功能未安装或缺失，请联系管理员补全依赖。")
+                return False, "PixivRank50模块导入失败"
             # rank参数处理
             if rank is not None:
                 try:
@@ -355,7 +393,7 @@ class BingSearchAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "bing_search"
     action_description = "通过必应搜索并用LLM润色结果后返回（不适用于天气查询）"
@@ -379,12 +417,17 @@ class BingSearchAction(BaseAction):
 
     async def execute(self) -> tuple:
         query = self.action_data.get("query")
+        # 统一使用 generator_api.rewrite_reply
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=fail_msg,
-                reason="请用自然语言友好地提醒用户输入搜索内容，并举例。"
+                reply_data={
+                    "raw_reply": fail_msg,
+                    "reason": "请用自然语言友好地提醒用户输入搜索内容，并举例。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -400,10 +443,14 @@ class BingSearchAction(BaseAction):
             results = search_bing(query, num_results=5)
             if not results:
                 fail_msg = f"没有搜索到与“{query}”相关的内容。"
-                result_status, result_message = await generate_rewrite_reply(
+                result_status, result_message = await generator_api.rewrite_reply(
                     chat_stream=self.chat_stream,
-                    raw_reply=fail_msg,
-                    reason="请用自然语言简要解释无搜索结果的可能原因，并安慰用户。"
+                    reply_data={
+                        "raw_reply": fail_msg,
+                        "reason": "请用自然语言简要解释无搜索结果的可能原因，并安慰用户。"
+                    },
+                    enable_splitter=False,
+                    enable_chinese_typo=False
                 )
                 if result_status:
                     for reply_seg in result_message:
@@ -418,10 +465,14 @@ class BingSearchAction(BaseAction):
                 f"[{item['rank']}] {item['title']}\n{item['abstract']}\n链接: {item['url']}" for item in results
             ])
             # 只用 generator_tools 润色，不用LLM再润色
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=summary,
-                reason="总结搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
+                reply_data={
+                    "raw_reply": summary,
+                    "reason": "总结搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -434,10 +485,14 @@ class BingSearchAction(BaseAction):
         except Exception as e:
             logger.error(f"Bing搜索Action出错: {e}", exc_info=True)
             fail_msg = f"未能搜索到“{query}”的相关内容，或发生错误：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=fail_msg,
-                reason="请用自然语言简要解释搜索失败的可能原因，并安慰用户。"
+                reply_data={
+                    "raw_reply": fail_msg,
+                    "reason": "请用自然语言简要解释搜索失败的可能原因，并安慰用户。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -454,7 +509,7 @@ class DuckDuckGoSearchAction(BaseAction):
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
     mode_enable = ChatMode.ALL
-    parallel_action = True
+    parallel_action = False
 
     action_name = "duckduckgo_search"
     action_description = "通过 DuckDuckGo 搜索并返回结果摘要"
@@ -476,12 +531,23 @@ class DuckDuckGoSearchAction(BaseAction):
 
     async def execute(self) -> tuple:
         query = self.action_data.get("query")
+        # 统一使用 generator_api.rewrite_reply
+        try:
+            from .duckduckgo_tool import duckduckgo_search
+        except ImportError as e:
+            logger.warning(f"duckduckgo_tool模块导入失败: {e}")
+            await self.send_text("DuckDuckGo搜索功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "duckduckgo_tool模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=fail_msg,
-                reason="请用自然语言友好地提醒用户输入DuckDuckGo搜索内容，并举例。"
+                reply_data={
+                    "raw_reply": fail_msg,
+                    "reason": "请用自然语言友好地提醒用户输入DuckDuckGo搜索内容，并举例。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -496,10 +562,14 @@ class DuckDuckGoSearchAction(BaseAction):
             results = duckduckgo_search(query)
             if not results.get("success") or not results.get("results"):
                 fail_msg = f"没有搜索到与“{query}”相关的内容。请简要解释可能的原因并安慰用户。"
-                result_status, result_message = await generate_rewrite_reply(
+                result_status, result_message = await generator_api.rewrite_reply(
                     chat_stream=self.chat_stream,
-                    raw_reply=fail_msg,
-                    reason="请用自然语言简要解释DuckDuckGo搜索无结果的可能原因，并安慰用户。"
+                    reply_data={
+                        "raw_reply": fail_msg,
+                        "reason": "请用自然语言简要解释DuckDuckGo搜索无结果的可能原因，并安慰用户。"
+                    },
+                    enable_splitter=False,
+                    enable_chinese_typo=False
                 )
                 if result_status:
                     for reply_seg in result_message:
@@ -513,10 +583,14 @@ class DuckDuckGoSearchAction(BaseAction):
                 f"[{i+1}] {item['title']}\n{item['snippet']}\n链接: {item['url']}" for i, item in enumerate(results["results"])
             ])
             # 使用generate_rewrite_reply润色后再发送
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=summary,
-                reason="总结DuckDuckGo搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
+                reply_data={
+                    "raw_reply": summary,
+                    "reason": "总结DuckDuckGo搜索结果，选择高相关性结果回复，请务必在回复中包含至少一个原始搜索结果中的网页链接，且内容要准确、简洁、友好。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -529,10 +603,14 @@ class DuckDuckGoSearchAction(BaseAction):
         except Exception as e:
             logger.error(f"DuckDuckGo搜索Action出错: {e}", exc_info=True)
             fail_msg = f"DuckDuckGo搜索失败：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            result_status, result_message = await generate_rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
-                raw_reply=fail_msg,
-                reason="请用自然语言简要解释DuckDuckGo搜索失败的可能原因，并安慰用户。"
+                reply_data={
+                    "raw_reply": fail_msg,
+                    "reason": "请用自然语言简要解释DuckDuckGo搜索失败的可能原因，并安慰用户。"
+                },
+                enable_splitter=False,
+                enable_chinese_typo=False
             )
             if result_status:
                 for reply_seg in result_message:
@@ -548,7 +626,10 @@ class DuckDuckGoSearchAction(BaseAction):
 
 
 @register_plugin
+
 class DoubaoSearchPlugin(BasePlugin):
+    dependencies = []  # type: ignore
+    python_dependencies = []  # type: ignore
     """豆包搜索插件
 
     基于火山引擎豆包模型的AI搜索插件：
@@ -556,9 +637,9 @@ class DoubaoSearchPlugin(BasePlugin):
     """
 
     # 插件基本信息
-    plugin_name = "doubao_search_plugin"  # 内部标识符
-    enable_plugin = True
-    config_file_name = "config.toml"
+    plugin_name = "doubao_search_plugin"  # type: ignore  # 内部标识符
+    enable_plugin = True  # type: ignore
+    config_file_name = "config.toml"  # type: ignore
 
     # 配置节描述
     config_section_descriptions = {
@@ -570,7 +651,7 @@ class DoubaoSearchPlugin(BasePlugin):
     }
 
     # 配置Schema定义
-    config_schema = {
+    config_schema = {  # type: ignore
         "plugin": {
             "name": ConfigField(type=str, default="doubao_search_plugin", description="插件名称", required=True),
             "version": ConfigField(type=str, default="1.0.0", description="插件版本号"),
@@ -604,6 +685,7 @@ class DoubaoSearchPlugin(BasePlugin):
             "enable_pixiv_moehu_action": ConfigField(type=bool, default=True, description="是否启用Moehu图片Action"),
             "enable_pixiv_random_action": ConfigField(type=bool, default=True, description="是否启用Pixiv随机图片Action"),
             "enable_pixiv_rank50_action": ConfigField(type=bool, default=True, description="是否启用Pixiv排行榜图片Action"),
+            "enable_pixiv_rank50_on_search": ConfigField(type=bool, default=False, description="搜索后是否自动发送Pixiv排行榜随机图片"),
         },
         "proxy": {
             "use_proxy": ConfigField(type=bool, default=False, description="是否启用HTTP/HTTPS代理"),

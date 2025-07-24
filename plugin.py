@@ -629,7 +629,7 @@ class DuckDuckGoSearchAction(BaseAction):
 
 class DoubaoSearchPlugin(BasePlugin):
     dependencies = []  # type: ignore
-    python_dependencies = []  # type: ignore
+    python_dependencies = ["openai", "requests", "pillow", "toml", "tomlkit", "aiohttp", "selenium>=4.0.0", "webdriver-manager>=3.0.0", "beautifulsoup4>=4.0.0"]  # type: ignore
     """豆包搜索插件
 
     基于火山引擎豆包模型的AI搜索插件：

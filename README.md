@@ -1,128 +1,115 @@
+
 # doubao_search_plugin
-maimai的DEV 08S2 用 耐杀王 
 
+## 概述
 
-## 插件简介
-豆包搜索插件是基于火山引擎豆包模型的AI搜索插件，提供智能LLM判定和高效搜索功能。主要功能包括：
-- 智能LLM判定：根据聊天内容智能判断是否需要生成图片或搜索内容。
-- 高质量搜索结果生成：使用火山引擎豆包模型生成智能回复。
-- 结果缓存：避免重复生成相同内容的结果。    
-- 配置验证：自动验证和修复配置文件。
-- 参数验证：完整的输入参数验证和错误处理。
+`doubao_search_plugin` 是基于火山引擎豆包模型的 AI 智能搜索与图片生成插件，支持多种智能对话、图片与网页搜索场景。插件集成了 LLM 智能判定、丰富的图片获取、必应与 DuckDuckGo 网络搜索等能力，适用于多样化的聊天机器人和智能助手场景。
 
-## 内置图片相关Action说明
-插件已内置并自动注册以下图片相关Action，可在对话中通过关键词或LLM判定自动触发：
-- **PixivMoehuAction**：通过 [moehu.org](https://moehu.org) API 获取二次元、三次元、角色、游戏、动漫、表情包等类型图片。
-- **PixivRandomImageAction**：获取Pixiv随机图片，支持内容分级、关键词、标签筛选。
-- **PixivRank50Action**：获取Pixiv排行榜指定排名（1-50，默认随机）图片。
+主要特性：
+- **智能 LLM 判定**：自动识别用户意图，智能决定是否生成图片或进行搜索。
+- **高质量内容生成**：基于火山引擎豆包模型，生成高质量智能回复。
+- **多图片源支持**：内置多种图片获取方式，满足二次元、三次元、插画、表情包等需求。
+- **网页搜索能力**：集成必应（Bing）和 DuckDuckGo 搜索，自动润色并返回带真实链接的摘要。
+- **结果缓存**：避免重复生成相同内容，提升效率。
+- **配置与参数校验**：自动验证和修复配置文件，参数完整性校验与错误处理。
 
-这些Action可用于满足用户发送图片、动漫、插画等多样化需求，具体参数和调用方式见插件源码注释。
+---
 
-## 新增：必应搜索Action说明
+## 内置 Action 说明
 
-插件现已内置网页搜索能力，支持通过必应（Bing）搜索互联网内容，并自动用AI润色后回复，且回复中会包含真实网页链接。
+插件自动注册以下 Action，可通过关键词或 LLM 判定自动触发：
 
-- **BingSearchAction**：通过 `bing`、`必应`、`网页搜索` 等关键词或LLM判定自动触发，自动抓取必应搜索结果，智能摘要并润色，回复中会保留至少一个原始网页链接。
-- 适用场景：用户需要获取互联网最新信息、查找网页内容、需要带来源的智能摘要时。
-- 触发方式：对话中包含如“bing搜索xxx”“帮我查查xxx”等关键词，或AI判定需要联网搜索时自动触发。
-- 返回内容：AI会根据必应搜索结果自动生成简明、准确、友好的自然语言回复，并附带真实网页链接。
+- **PixivMoehuAction**：通过 [moehu.org](https://moehu.org) API 获取二次元、三次元、角色、游戏、动漫、表情包等图片。
+- **PixivRandomImageAction**：获取 Pixiv 随机图片，支持内容分级、关键词、标签筛选。
+- **PixivRank50Action**：获取 Pixiv 日榜指定排名（1-50，默认随机）图片。
+- **BingSearchAction**：通过必应（Bing）搜索互联网内容，AI 自动摘要润色，回复中包含真实网页链接。
+- **DuckDuckGoSearchAction**：通过 DuckDuckGo 搜索互联网内容，AI 自动摘要润色，回复中包含真实网页链接。
 
-**示例：**
+**Action 触发方式**：
+- 关键词触发（如“搜索”、“bing”、“duckduckgo”等）
+- LLM 智能判定（如用户提出问题、请求图片、查询天气等）
 
-```
-用户：bing搜索2025年高考时间
-AI：2025年高考时间为6月7日至9日，具体安排可参考教育部官网。更多信息请见：[教育部通知链接](https://www.bing.com/xxx)
-```
+**Action 详细参数与调用方式请参考源码注释。**
 
-如需自定义回复风格或链接展示方式，可修改 `plugin.py` 中 `BingSearchAction` 的实现。
+---
 
-## 新增：DuckDuckGo搜索Action说明
+## 依赖环境说明
 
-插件现已内置 DuckDuckGo 网页搜索能力，支持通过 DuckDuckGo 搜索互联网内容，并自动用AI润色后回复，且回复中会包含真实网页链接。
+### Python 依赖
+已在 `requirements.txt` 中声明，主要包括：
+- openai
+- requests
+- pillow
+- selenium >= 4.0.0
+- webdriver-manager >= 3.0.0
+- beautifulsoup4 >= 4.0.0
 
-- **DuckDuckGoSearchAction**：通过 `duckduckgo`、`ddg`、`网页搜索` 等关键词或LLM判定自动触发，自动抓取 DuckDuckGo 搜索结果，智能摘要并润色，回复中会保留至少一个原始网页链接。
-- 适用场景：用户需要获取互联网信息、查找网页内容、需要带来源的智能摘要时。
-- 触发方式：对话中包含如“duckduckgo搜索xxx”“ddg查找xxx”等关键词，或AI判定需要联网搜索时自动触发。
-- 返回内容：AI会根据 DuckDuckGo 搜索结果自动生成简明、准确、友好的自然语言回复，并附带真实网页链接。
-
-**示例：**
-
-```
-用户：duckduckgo搜索2025年高考时间
-AI：2025年高考时间为6月7日至9日，具体安排可参考教育部官网。更多信息请见：[教育部通知链接](https://www.example.com/xxx)
-```
-
-如需自定义回复风格或链接展示方式，可修改 `plugin.py` 中 `DuckDuckGoSearchAction` 的实现。
-
-## DuckDuckGo依赖环境说明
-
-DuckDuckGo搜索功能依赖Selenium自动化浏览器，需要以下环境支持：
-
-- Python依赖（已在 `requirements.txt` 中声明）：
-  selenium>=4.0.0
-  webdriver-manager>=3.0.0
-  beautifulsoup4>=4.0.0
-- 需要本地已安装 Google Chrome 浏览器（建议使用最新版）。
-  - Windows 用户可前往 [Chrome官方下载页面](https://www.google.cn/chrome/) 下载并安装。
-  - Mac/Linux 用户请根据各自系统安装。
-
+### 浏览器依赖（DuckDuckGo 搜索）
+- 需本地安装 Google Chrome 浏览器（建议最新版）。
+  - [Chrome官方下载](https://www.google.cn/chrome/)
 - 插件首次运行时会自动下载并管理对应版本的 ChromeDriver。
 
-如遇到浏览器或驱动相关报错，请检查 Chrome 是否已正确安装，或尝试手动升级 Chrome 及 ChromeDriver。
+如遇浏览器或驱动相关报错，请检查 Chrome 是否已正确安装，或尝试手动升级 Chrome 及 ChromeDriver。
+
+---
 
 ## 配置文件说明
-插件需要一个名为 `config.toml` 的配置文件来运行。如果您发现配置文件被重命名或丢失，请按照以下步骤操作：
 
-1. 确保插件目录下存在 `template_config.toml` 文件。
-2. 将 `template_config.toml` 文件重命名为 `config.toml`。
-3. 根据需要修改 `config.toml` 中的配置，例如填写正确的 `volcano_generate_api_key`。
-
-配置文件的主要内容包括：
-- 插件基本信息配置
-- API相关配置（如API密钥和基础URL）
+插件需要 `config.toml` 配置文件，主要内容包括：
+- 插件基本信息
+- API 相关配置（如 API 密钥、基础 URL、模型名称）
 - 结果缓存配置
 - 组件启用配置
+- 代理配置
 
-## 注意事项
-- 请确保 `volcano_generate_api_key` 字段填写正确的API密钥，否则插件将无法正常工作。
-- 修改配置文件后，请重新启动插件以应用更改。
+**首次使用请确保：**
+1. 插件目录下存在 `config.toml` 文件（如丢失可复制 `template_config.toml` 并重命名）。
+2. 填写正确的 `volcano_generate_api_key` 和 `model_name`。
+3. 修改配置后需重启插件生效。
+
+---
 
 ## 如何获取自定义模型端点
 
-为了使用豆包搜索插件，您需要在火山引擎控制台中创建一个无代码应用并开通联网插件。请按照以下步骤操作：
+1. 登录 [火山引擎控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/assistant)。
+2. 创建无代码应用并开通联网插件。
+3. 在无代码应用中配置自定义模型端点。
+4. 将生成的模型端点填入 `config.toml` 的 `model_name` 字段。
+5. 重启插件。
 
-1. 打开[火山引擎控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/assistant)。
-2. 创建一个新的无代码应用。
-3. 前往[联网插件页面](https://console.volcengine.com/ark/region:ark+cn-beijing/components?action=%7B%7D)并开通联网插件。
-4. 在无代码应用中配置您的自定义模型端点。
-5. 将生成的模型端点填入 `config.toml` 文件中的 `model_name` 字段。
+详细流程请参考[官方文档](https://github.com/MaiM-with-u/MaiBot/tree/dev)。
 
-完成以上步骤后，请确保重新启动插件以应用更改。
+---
 
-更多信息请参考插件的[官方文档](https://github.com/MaiM-with-u/MaiBot/tree/dev)。
+## 代理与 Pixiv 图片功能
 
-## 代理配置说明
+Pixiv 排行榜图片功能支持自定义代理，代理配置文件为 `proxy_setting.json`，内容示例：
 
-Pixiv排行榜图片功能支持自定义代理，代理配置已独立为 `proxy_setting.json` 文件，位于插件目录下。
+```json
+{
+  "http": "http://127.0.0.1:7897",
+  "https": "http://127.0.0.1:7897"
+}
+```
 
-- 默认内容如下：
-  ```json
-  {
-    "http": "http://127.0.0.1:7897",
-    "https": "http://127.0.0.1:7897"
-  }
-  ```
-- 如需更换代理，直接修改 `proxy_setting.json`，无需更改代码。
-- 若不需要代理，可将文件内容设为 `{}` 或删除该文件。
+如需更换代理，直接修改该文件，无需更改代码。若不需要代理，可将内容设为 `{}` 或删除该文件。
 
-## Pixiv排行榜图片工具
+**Pixiv 日榜图片工具**：
+- 通过 `get_pixiv_image_by_rank(rank=None)` 获取 Pixiv 日榜指定序号（1-50）的图片，返回 datauri 格式 base64 jpg 字符串。
+- 该工具自动读取 `proxy_setting.json`。
 
-插件内置 `PixivRank50.py` 工具文件，可通过 `get_pixiv_image_by_rank(rank=None)` 获取 Pixiv 日榜指定序号（1-50）的图片，返回 datauri 格式的 base64 jpg 图片字符串。
-- 参数 `rank` 非法或未填时自动随机。
-- 该工具自动读取 `proxy_setting.json` 作为代理配置。
+**自动发送说明**：
+每次执行智能搜索时，默认会自动发送一张随机 Pixiv 日榜图片（可在配置中关闭）。
 
-## Pixiv排行榜图片自动发送说明
+---
 
-每次豆包搜索插件执行一次智能搜索时，都会自动随机获取并发送一张 Pixiv 日榜图片（1-50名随机）。该图片通过内置工具 `PixivRank50.py` 获取，使用 datauri base64 格式，并自动应用 `proxy_setting.json` 代理配置。
+## 常见问题与注意事项
 
-如需关闭此功能，请在 `plugin.py` 的 Action 逻辑中移除相关调用。
+- 请确保 API 密钥填写正确，否则插件无法正常工作。
+- 修改配置后请重启插件。
+- DuckDuckGo 搜索需本地安装 Chrome 浏览器。
+- 如遇依赖或环境问题，请优先检查 Python 依赖和浏览器环境。
+
+---
+
+如需自定义 Action 行为、回复风格或图片展示方式，请直接修改 `plugin.py` 中对应 Action 的实现。

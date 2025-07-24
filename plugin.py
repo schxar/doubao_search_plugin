@@ -178,18 +178,19 @@ class DoubaoSearchGenerationAction(BaseAction):
             else:
                 await self.send_text(response_content)
 
-            # 发送一张Pixiv排行榜随机图片    
-            try:
-                
-                img_datauri = get_pixiv_image_by_rank(None)
-                # 只取datauri的base64部分
-                if img_datauri.startswith("data:image/"):
-                    base64_image = img_datauri.split(",", 1)[-1]
-                else:
-                    base64_image = img_datauri
-                await self.send_image(base64_image)
-            except Exception as e:
-                logger.warning(f"Pixiv排行榜图片发送失败: {e}")
+            # 根据配置决定是否发送Pixiv排行榜随机图片
+            enable_pixiv_rank50_on_search = self.get_config("components.enable_pixiv_rank50_on_search", False)
+            if enable_pixiv_rank50_on_search:
+                try:
+                    img_datauri = get_pixiv_image_by_rank(None)
+                    # 只取datauri的base64部分
+                    if img_datauri.startswith("data:image/"):
+                        base64_image = img_datauri.split(",", 1)[-1]
+                    else:
+                        base64_image = img_datauri
+                    await self.send_image(base64_image)
+                except Exception as e:
+                    logger.warning(f"Pixiv排行榜图片发送失败: {e}")
 
             return True, response_content
 
@@ -604,6 +605,7 @@ class DoubaoSearchPlugin(BasePlugin):
             "enable_pixiv_moehu_action": ConfigField(type=bool, default=True, description="是否启用Moehu图片Action"),
             "enable_pixiv_random_action": ConfigField(type=bool, default=True, description="是否启用Pixiv随机图片Action"),
             "enable_pixiv_rank50_action": ConfigField(type=bool, default=True, description="是否启用Pixiv排行榜图片Action"),
+            "enable_pixiv_rank50_on_search": ConfigField(type=bool, default=False, description="搜索后是否自动发送Pixiv排行榜随机图片"),
         },
         "proxy": {
             "use_proxy": ConfigField(type=bool, default=False, description="是否启用HTTP/HTTPS代理"),

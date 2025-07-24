@@ -27,18 +27,34 @@ import toml
 
 # 导入新插件系统
 from src.plugin_system.base.base_plugin import BasePlugin
-from src.plugin_system.base.base_plugin import register_plugin
-from src.plugin_system.base.base_action import BaseAction
-from src.plugin_system.base.component_types import ComponentInfo, ActionActivationType, ChatMode
+from src.plugin_system.apis.plugin_register_api import register_plugin
+from src.plugin_system.base.base_action import BaseAction, ActionActivationType, ChatMode
+from src.plugin_system.base.base_command import BaseCommand
+from src.plugin_system.base.component_types import ComponentInfo
 from src.plugin_system.base.config_types import ConfigField
+from src.plugin_system.apis import generator_api
+from src.plugin_system.apis import database_api
+from src.plugin_system.apis import config_api
+from src.common.database.database_model import Messages, PersonInfo
+from src.person_info.person_info import get_person_info_manager
 from src.common.logger import get_logger
+from PIL import Image
+from typing import Tuple, Dict, Optional, List, Any, Type
+from pathlib import Path
+import traceback
+import tomlkit
+import json
+import random
+import asyncio
+import aiohttp
+import base64
+import toml
+import io
+import os
+import re
 from openai import OpenAI
 
-from .PixivRank50 import get_pixiv_image_by_rank
-from .pixiv_image_action import get_random_pixiv_image
-from .moehu_image_action import get_moehu_image
-from .generator_tools import generate_rewrite_reply
-from .duckduckgo_tool import duckduckgo_search
+
 
 logger = get_logger("doubao_search_plugin")
 
@@ -153,6 +169,13 @@ class DoubaoSearchGenerationAction(BaseAction):
         query = query.strip()
 
         try:
+            try:
+                from .generator_tools import generate_rewrite_reply
+            except ImportError as e:
+                logger.warning(f"generator_tools模块导入失败: {e}")
+                await self.send_text("回复润色功能未安装或缺失，请联系管理员补全依赖。")
+                return False, "generator_tools模块导入失败"
+
             # 调用OpenAI客户端
             completion = self.client.chat.completions.create(
                 model=self.get_config("api.model_name"),  # 从配置中读取模型名称
@@ -164,7 +187,7 @@ class DoubaoSearchGenerationAction(BaseAction):
 
             # 获取回复内容
             response_content = completion.choices[0].message.content or ""
-            # 使用 generator_tools 工具生成回复
+
             result_status, result_message = await generate_rewrite_reply(
                 chat_stream=self.chat_stream,
                 raw_reply=response_content,
@@ -180,7 +203,12 @@ class DoubaoSearchGenerationAction(BaseAction):
 
             # 发送一张Pixiv排行榜随机图片
             try:
-                
+                try:
+                    from .PixivRank50 import get_pixiv_image_by_rank
+                except ImportError as e:
+                    logger.warning(f"PixivRank50模块导入失败: {e}")
+                    await self.send_text("Pixiv排行榜图片功能未安装或缺失，请联系管理员补全依赖。")
+                    return False, "PixivRank50模块导入失败"
                 img_datauri = get_pixiv_image_by_rank(None)
                 # 只取datauri的base64部分
                 if img_datauri.startswith("data:image/"):
@@ -235,7 +263,12 @@ class PixivMoehuAction(BaseAction):
     async def execute(self) -> tuple:
         image_type = self.action_data.get("type")
         try:
-            from .moehu_image_action import get_moehu_image
+            try:
+                from .moehu_image_action import get_moehu_image
+            except ImportError as e:
+                logger.warning(f"moehu_image_action模块导入失败: {e}")
+                await self.send_text("Moehu图片功能未安装或缺失，请联系管理员补全依赖。")
+                return False, "moehu_image_action模块导入失败"
             datauri = get_moehu_image(image_type)
             # 只取datauri的base64部分
             if datauri.startswith("data:image/"):
@@ -276,7 +309,12 @@ class PixivRandomImageAction(BaseAction):
         content_rating = self.action_data.get("content_rating", 0)
         keyword = self.action_data.get("keyword")
         tag = self.action_data.get("tag")
-        from .pixiv_image_action import get_random_pixiv_image
+        try:
+            from .pixiv_image_action import get_random_pixiv_image
+        except ImportError as e:
+            logger.warning(f"pixiv_image_action模块导入失败: {e}")
+            await self.send_text("Pixiv图片功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "pixiv_image_action模块导入失败"
         max_attempts = 3
         last_exception = None
         for attempt in range(max_attempts):
@@ -329,7 +367,12 @@ class PixivRank50Action(BaseAction):
     async def execute(self) -> tuple:
         rank = self.action_data.get("rank")
         try:
-            from .PixivRank50 import get_pixiv_image_by_rank
+            try:
+                from .PixivRank50 import get_pixiv_image_by_rank
+            except ImportError as e:
+                logger.warning(f"PixivRank50模块导入失败: {e}")
+                await self.send_text("Pixiv排行榜图片功能未安装或缺失，请联系管理员补全依赖。")
+                return False, "PixivRank50模块导入失败"
             # rank参数处理
             if rank is not None:
                 try:
@@ -379,6 +422,12 @@ class BingSearchAction(BaseAction):
 
     async def execute(self) -> tuple:
         query = self.action_data.get("query")
+        try:
+            from .generator_tools import generate_rewrite_reply
+        except ImportError as e:
+            logger.warning(f"generator_tools模块导入失败: {e}")
+            await self.send_text("回复润色功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "generator_tools模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
             result_status, result_message = await generate_rewrite_reply(
@@ -476,6 +525,18 @@ class DuckDuckGoSearchAction(BaseAction):
 
     async def execute(self) -> tuple:
         query = self.action_data.get("query")
+        try:
+            from .generator_tools import generate_rewrite_reply
+        except ImportError as e:
+            logger.warning(f"generator_tools模块导入失败: {e}")
+            await self.send_text("回复润色功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "generator_tools模块导入失败"
+        try:
+            from .duckduckgo_tool import duckduckgo_search
+        except ImportError as e:
+            logger.warning(f"duckduckgo_tool模块导入失败: {e}")
+            await self.send_text("DuckDuckGo搜索功能未安装或缺失，请联系管理员补全依赖。")
+            return False, "duckduckgo_tool模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
             result_status, result_message = await generate_rewrite_reply(

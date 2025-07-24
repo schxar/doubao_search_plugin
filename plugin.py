@@ -609,7 +609,10 @@ class DuckDuckGoSearchAction(BaseAction):
 
 
 @register_plugin
+
 class DoubaoSearchPlugin(BasePlugin):
+    dependencies = []
+    python_dependencies = []
     """豆包搜索插件
 
     基于火山引擎豆包模型的AI搜索插件：

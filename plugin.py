@@ -36,7 +36,7 @@ from src.plugin_system.apis import generator_api
 from src.plugin_system.apis import database_api
 from src.plugin_system.apis import config_api
 from src.common.database.database_model import Messages, PersonInfo
-from src.person_info.person_info import get_person_info_manager
+from src.person_info.person_info import get_person_id_by_person_name
 from src.common.logger import get_logger
 from PIL import Image
 from typing import Tuple, Dict, Optional, List, Any, Type

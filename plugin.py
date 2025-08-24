@@ -182,7 +182,7 @@ class DoubaoSearchGenerationAction(BaseAction):
             response_content = completion.choices[0].message.content or ""
 
             # 统一使用 generator_api.rewrite_reply
-            result_status, result_message = await generator_api.rewrite_reply(
+            status, rewrite_result, error_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": response_content,
@@ -191,13 +191,14 @@ class DoubaoSearchGenerationAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if status:
+                for reply_seg in rewrite_result:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                await self.send_text(response_content)
+                error_msg = error_message if error_message else "回复生成失败"
+                await self.send_text(error_msg)
 
             # 根据配置决定是否发送Pixiv排行榜图片
             enable_pixiv_rank50_on_search = self.get_config("components.enable_pixiv_rank50_on_search", False)
@@ -420,7 +421,7 @@ class BingSearchAction(BaseAction):
         # 统一使用 generator_api.rewrite_reply
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
-            result_status, result_message = await generator_api.rewrite_reply(
+            status, rewrite_result, error_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -429,13 +430,14 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if status and rewrite_result:
+                for reply_seg in rewrite_result:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                await self.send_text(fail_msg)
+                error_msg = error_message if error_message else fail_msg
+                await self.send_text(error_msg)
             return False, "查询内容为空"
         query = query.strip()
         try:
@@ -540,7 +542,7 @@ class DuckDuckGoSearchAction(BaseAction):
             return False, "duckduckgo_tool模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
-            result_status, result_message = await generator_api.rewrite_reply(
+            status, rewrite_result, error_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -549,13 +551,14 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if status and rewrite_result:
+                for reply_seg in rewrite_result:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                await self.send_text(fail_msg)
+                error_msg = error_message if error_message else fail_msg
+                await self.send_text(error_msg)
             return False, "查询内容为空"
         query = query.strip()
         try:
@@ -583,7 +586,7 @@ class DuckDuckGoSearchAction(BaseAction):
                 f"[{i+1}] {item['title']}\n{item['snippet']}\n链接: {item['url']}" for i, item in enumerate(results["results"])
             ])
             # 使用generate_rewrite_reply润色后再发送
-            result_status, result_message = await generator_api.rewrite_reply(
+            status, rewrite_result, error_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": summary,
@@ -592,18 +595,19 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if status and rewrite_result:
+                for reply_seg in rewrite_result:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                await self.send_text(summary)
+                error_msg = error_message if error_message else summary
+                await self.send_text(error_msg)
             return True, summary
         except Exception as e:
             logger.error(f"DuckDuckGo搜索Action出错: {e}", exc_info=True)
             fail_msg = f"DuckDuckGo搜索失败：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            result_status, result_message = await generator_api.rewrite_reply(
+            status, rewrite_result, error_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -612,13 +616,14 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if status and rewrite_result:
+                for reply_seg in rewrite_result:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                await self.send_text(fail_msg)
+                error_msg = error_message if error_message else fail_msg
+                await self.send_text(error_msg)
             return False, fail_msg
 
 

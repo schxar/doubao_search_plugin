@@ -9,9 +9,30 @@
 - 结果缓存：避免重复生成相同内容的图片
 - 配置验证：自动验证和修复配置文件
 - 参数验证：完整的输入参数验证和错误处理
-- 多尺寸支持：支持多种图片尺寸生成
+- 多尺寸支持：支持多种图片尺寸生成            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
+                    data = reply_seg[1]
+                    await self.send_text(data)
+                    await asyncio.sleep(1.                fail_msg = f"没有搜索到与"{query}"相关的内容。"
+                result_status, llm_response = await generator_api.rewrite_reply(
+                    chat_stream=self.chat_stream,
+                    reply_data={
+                        "raw_reply": fail_msg,
+                        "reason": "请用自然语言简要解释无搜索结果的可能原因，并安慰用户。"
+                    },
+                    enable_splitter=False,
+                    enable_chinese_typo=False
+                )
+                if result_status and llm_response and llm_response.reply_set:
+                    for reply_seg in llm_response.reply_set:
+                        data = reply_seg[1]
+                        await self.send_text(data)
+                        await asyncio.sleep(1.0)
+                else:
+                    await self.send_text(fail_msg)lse:
+                await self.send_text("回复生成失败")
 
-包含组件：
+            # 根据配置决定是否发送Pixiv排行榜图片
 - 图片生成Action - 根据描述使用火山引擎API生成图片
 """
 
@@ -28,7 +49,7 @@ import toml
 # 导入新插件系统
 from src.plugin_system.base.base_plugin import BasePlugin
 from src.plugin_system.apis.plugin_register_api import register_plugin
-from src.plugin_system.base.base_action import BaseAction, ActionActivationType, ChatMode
+from src.plugin_system.base.base_action import BaseAction, ActionActivationType
 from src.plugin_system.base.base_command import BaseCommand
 from src.plugin_system.base.component_types import ComponentInfo
 from src.plugin_system.base.config_types import ConfigField
@@ -87,7 +108,7 @@ class DoubaoSearchGenerationAction(BaseAction):
     # 激活设置
     focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
     normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
-    mode_enable = ChatMode.ALL
+
     parallel_action = False
 
     # 动作基本信息
@@ -182,7 +203,7 @@ class DoubaoSearchGenerationAction(BaseAction):
             response_content = completion.choices[0].message.content or ""
 
             # 统一使用 generator_api.rewrite_reply
-            status, rewrite_result, error_message = await generator_api.rewrite_reply(
+            status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": response_content,
@@ -191,14 +212,13 @@ class DoubaoSearchGenerationAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status:
-                for reply_seg in rewrite_result:
+            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                error_msg = error_message if error_message else "回复生成失败"
-                await self.send_text(error_msg)
+                await self.send_text("回复生成失败")
 
             # 根据配置决定是否发送Pixiv排行榜图片
             enable_pixiv_rank50_on_search = self.get_config("components.enable_pixiv_rank50_on_search", False)
@@ -241,7 +261,7 @@ class PixivMoehuAction(BaseAction):
 
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
+
     parallel_action = False
 
     action_name = "moehu_image"
@@ -284,7 +304,7 @@ class PixivRandomImageAction(BaseAction):
 
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
+     
     parallel_action = False
 
     action_name = "pixiv_random_image"
@@ -346,7 +366,7 @@ class PixivRank50Action(BaseAction):
 
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
+     
     parallel_action = False
 
     action_name = "pixiv_rank50_image"
@@ -393,7 +413,7 @@ class BingSearchAction(BaseAction):
     """必应搜索并润色结果Action"""
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
+     
     parallel_action = False
 
     action_name = "bing_search"
@@ -421,7 +441,7 @@ class BingSearchAction(BaseAction):
         # 统一使用 generator_api.rewrite_reply
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
-            status, rewrite_result, error_message = await generator_api.rewrite_reply(
+            status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -430,14 +450,13 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and rewrite_result:
-                for reply_seg in rewrite_result:
+            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                error_msg = error_message if error_message else fail_msg
-                await self.send_text(error_msg)
+                await self.send_text(fail_msg)
             return False, "查询内容为空"
         query = query.strip()
         try:
@@ -467,7 +486,7 @@ class BingSearchAction(BaseAction):
                 f"[{item['rank']}] {item['title']}\n{item['abstract']}\n链接: {item['url']}" for item in results
             ])
             # 只用 generator_tools 润色，不用LLM再润色
-            result_status, result_message = await generator_api.rewrite_reply(
+            result_status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": summary,
@@ -476,8 +495,8 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if result_status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
@@ -487,7 +506,7 @@ class BingSearchAction(BaseAction):
         except Exception as e:
             logger.error(f"Bing搜索Action出错: {e}", exc_info=True)
             fail_msg = f"未能搜索到“{query}”的相关内容，或发生错误：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            result_status, result_message = await generator_api.rewrite_reply(
+            result_status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -496,8 +515,8 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status:
-                for reply_seg in result_message:
+            if result_status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
@@ -510,7 +529,7 @@ class DuckDuckGoSearchAction(BaseAction):
     """DuckDuckGo 搜索 Action"""
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
+     
     parallel_action = False
 
     action_name = "duckduckgo_search"

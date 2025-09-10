@@ -561,7 +561,7 @@ class DuckDuckGoSearchAction(BaseAction):
             return False, "duckduckgo_tool模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
-            status, rewrite_result, error_message = await generator_api.rewrite_reply(
+            status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -570,21 +570,20 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and rewrite_result:
-                for reply_seg in rewrite_result:
+            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                error_msg = error_message if error_message else fail_msg
-                await self.send_text(error_msg)
+                await self.send_text(fail_msg)
             return False, "查询内容为空"
         query = query.strip()
         try:
             results = duckduckgo_search(query)
             if not results.get("success") or not results.get("results"):
                 fail_msg = f"没有搜索到与“{query}”相关的内容。请简要解释可能的原因并安慰用户。"
-                result_status, result_message = await generator_api.rewrite_reply(
+                result_status, llm_response = await generator_api.rewrite_reply(
                     chat_stream=self.chat_stream,
                     reply_data={
                         "raw_reply": fail_msg,
@@ -593,8 +592,8 @@ class DuckDuckGoSearchAction(BaseAction):
                     enable_splitter=False,
                     enable_chinese_typo=False
                 )
-                if result_status:
-                    for reply_seg in result_message:
+                if result_status and llm_response and llm_response.reply_set:
+                    for reply_seg in llm_response.reply_set:
                         data = reply_seg[1]
                         await self.send_text(data)
                         await asyncio.sleep(1.0)
@@ -605,7 +604,7 @@ class DuckDuckGoSearchAction(BaseAction):
                 f"[{i+1}] {item['title']}\n{item['snippet']}\n链接: {item['url']}" for i, item in enumerate(results["results"])
             ])
             # 使用generate_rewrite_reply润色后再发送
-            status, rewrite_result, error_message = await generator_api.rewrite_reply(
+            status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": summary,
@@ -614,19 +613,18 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and rewrite_result:
-                for reply_seg in rewrite_result:
+            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                error_msg = error_message if error_message else summary
-                await self.send_text(error_msg)
+                await self.send_text(summary)
             return True, summary
         except Exception as e:
             logger.error(f"DuckDuckGo搜索Action出错: {e}", exc_info=True)
             fail_msg = f"DuckDuckGo搜索失败：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            status, rewrite_result, error_message = await generator_api.rewrite_reply(
+            status, llm_response = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -635,14 +633,13 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and rewrite_result:
-                for reply_seg in rewrite_result:
+            if status and llm_response and llm_response.reply_set:
+                for reply_seg in llm_response.reply_set:
                     data = reply_seg[1]
                     await self.send_text(data)
                     await asyncio.sleep(1.0)
             else:
-                error_msg = error_message if error_message else fail_msg
-                await self.send_text(error_msg)
+                await self.send_text(fail_msg)
             return False, fail_msg
 
 

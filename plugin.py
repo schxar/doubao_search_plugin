@@ -295,7 +295,21 @@ class PixivMoehuAction(BaseAction):
             return True, f"已发送图片(type={image_type or '2d'})"
         except Exception as e:
             logger.warning(f"Moehu图片发送失败: {e}")
-            await self.send_text("图片获取失败，请稍后再试。")
+            # 第一次失败后自动用2d重试一次
+            if image_type != "2d":
+                try:
+                    datauri = get_moehu_image("2d")
+                    if datauri.startswith("data:image/"):
+                        base64_image = datauri.split(",", 1)[-1]
+                    else:
+                        base64_image = datauri
+                    await self.send_image(base64_image)
+                    return True, "已发送图片(type=2d)"
+                except Exception as e2:
+                    logger.warning(f"Moehu图片2d重试也失败: {e2}")
+                    # 不回复任何内容
+                    return False, f"图片获取失败: {e}; 2d重试也失败: {e2}"
+            # 如果本来就是2d，直接不回复
             return False, f"图片获取失败: {e}"
 
 

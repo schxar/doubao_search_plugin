@@ -9,28 +9,7 @@
 - 结果缓存：避免重复生成相同内容的图片
 - 配置验证：自动验证和修复配置文件
 - 参数验证：完整的输入参数验证和错误处理
-- 多尺寸支持：支持多种图片尺寸生成            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.                fail_msg = f"没有搜索到与"{query}"相关的内容。"
-                result_status, llm_response = await generator_api.rewrite_reply(
-                    chat_stream=self.chat_stream,
-                    reply_data={
-                        "raw_reply": fail_msg,
-                        "reason": "请用自然语言简要解释无搜索结果的可能原因，并安慰用户。"
-                    },
-                    enable_splitter=False,
-                    enable_chinese_typo=False
-                )
-                if result_status and llm_response and llm_response.reply_set:
-                    for reply_seg in llm_response.reply_set:
-                        data = reply_seg[1]
-                        await self.send_text(data)
-                        await asyncio.sleep(1.0)
-                else:
-                    await self.send_text(fail_msg)lse:
-                await self.send_text("回复生成失败")
+- 多尺寸支持：支持多种图片尺寸生成         
 
             # 根据配置决定是否发送Pixiv排行榜图片
 - 图片生成Action - 根据描述使用火山引擎API生成图片
@@ -105,16 +84,15 @@ except Exception as e:
 class DoubaoSearchGenerationAction(BaseAction):
     """豆包搜索生成Action - 根据描述使用OpenAI标准参数系统生成智能回复"""
 
-    # 激活设置
-    focus_activation_type = ActionActivationType.ALWAYS  # Focus模式使用LLM判定，精确理解需求
-    normal_activation_type = ActionActivationType.ALWAYS  # Normal模式使用关键词激活，快速响应
+    # 激活设置（当前版本不区分 Focus/Normal，统一使用单一激活类型）
+    activation_type = ActionActivationType.ALWAYS
 
     parallel_action = False
 
     # 动作基本信息
     action_name = "doubao_llm_search"
     action_description = (
-        "可以根据用户输入，通过火山引擎豆包的搜索LLM生成智能回复或结果。支持查询天气、知识问答等。"
+        "当你不确定答案、不了解某个概念、不知道最新信息或无法回答用户问题时，请使用此插件进行联网搜索，而不是直接说'我不知道'。可以根据用户输入，通过火山引擎豆包的搜索LLM生成智能回复或结果。支持查询天气、知识问答、最新资讯等。"
     )
 
     # 关键词设置（用于Normal模式）
@@ -203,7 +181,7 @@ class DoubaoSearchGenerationAction(BaseAction):
             response_content = completion.choices[0].message.content or ""
 
             # 统一使用 generator_api.rewrite_reply
-            status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": response_content,
@@ -212,11 +190,10 @@ class DoubaoSearchGenerationAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            # 直接发送content字符串
+            if result_status and result_message:
+                await self.send_text("找到了相关信息哦~")
+                await self.send_text(result_message.content or "回复生成失败")
             else:
                 await self.send_text("回复生成失败")
 
@@ -259,8 +236,8 @@ class DoubaoSearchGenerationAction(BaseAction):
 class PixivMoehuAction(BaseAction):
     """Moehu图片API Action - 获取二次元/三次元/角色/游戏/动漫/表情包图片"""
 
-    focus_activation_type = ActionActivationType.LLM_JUDGE
-    normal_activation_type = ActionActivationType.KEYWORD
+    # 当前版本不区分 Focus/Normal，统一使用单一激活类型
+    activation_type = ActionActivationType.ALWAYS
 
     parallel_action = False
 
@@ -316,8 +293,8 @@ class PixivMoehuAction(BaseAction):
 class PixivRandomImageAction(BaseAction):
     """Pixiv随机图片API Action - 获取Pixiv随机图片"""
 
-    focus_activation_type = ActionActivationType.LLM_JUDGE
-    normal_activation_type = ActionActivationType.KEYWORD
+    # 当前版本不区分 Focus/Normal，统一使用单一激活类型
+    activation_type = ActionActivationType.ALWAYS
      
     parallel_action = False
 
@@ -378,8 +355,8 @@ class PixivRandomImageAction(BaseAction):
 class PixivRank50Action(BaseAction):
     """Pixiv排行榜图片API Action - 获取指定排名的Pixiv图片"""
 
-    focus_activation_type = ActionActivationType.LLM_JUDGE
-    normal_activation_type = ActionActivationType.KEYWORD
+    # 当前版本不区分 Focus/Normal，统一使用单一激活类型
+    activation_type = ActionActivationType.ALWAYS
      
     parallel_action = False
 
@@ -425,8 +402,8 @@ class PixivRank50Action(BaseAction):
 
 class BingSearchAction(BaseAction):
     """必应搜索并润色结果Action"""
-    focus_activation_type = ActionActivationType.LLM_JUDGE
-    normal_activation_type = ActionActivationType.KEYWORD
+    # 当前版本不区分 Focus/Normal，统一使用单一激活类型
+    activation_type = ActionActivationType.ALWAYS
      
     parallel_action = False
 
@@ -455,7 +432,7 @@ class BingSearchAction(BaseAction):
         # 统一使用 generator_api.rewrite_reply
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'bing搜索2025年高考时间'"
-            status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -464,21 +441,18 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or fail_msg)
             else:
                 await self.send_text(fail_msg)
-            return False, "查询内容为空"
+            return False, fail_msg
         query = query.strip()
         try:
             from .bing_search_tool import search_bing
             results = search_bing(query, num_results=5)
             if not results:
                 fail_msg = f"没有搜索到与“{query}”相关的内容。"
-                result_status, result_message = await generator_api.rewrite_reply(
+                result_status, llm_response = await generator_api.rewrite_reply(
                     chat_stream=self.chat_stream,
                     reply_data={
                         "raw_reply": fail_msg,
@@ -487,8 +461,8 @@ class BingSearchAction(BaseAction):
                     enable_splitter=False,
                     enable_chinese_typo=False
                 )
-                if result_status:
-                    for reply_seg in result_message:
+                if result_status and llm_response and llm_response.reply_set:
+                    for reply_seg in llm_response.reply_set:
                         data = reply_seg[1]
                         await self.send_text(data)
                         await asyncio.sleep(1.0)
@@ -500,7 +474,7 @@ class BingSearchAction(BaseAction):
                 f"[{item['rank']}] {item['title']}\n{item['abstract']}\n链接: {item['url']}" for item in results
             ])
             # 只用 generator_tools 润色，不用LLM再润色
-            result_status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": summary,
@@ -509,11 +483,8 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or summary)
             else:
                 await self.send_text(summary)
             return True, summary
@@ -529,11 +500,8 @@ class BingSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if result_status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or fail_msg)
             else:
                 await self.send_text(fail_msg)
             return False, fail_msg
@@ -575,7 +543,7 @@ class DuckDuckGoSearchAction(BaseAction):
             return False, "duckduckgo_tool模块导入失败"
         if not query or not query.strip():
             fail_msg = "你需要告诉我想要搜索什么内容哦~ 例如：'duckduckgo搜索2025年高考时间'"
-            status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -584,11 +552,8 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or fail_msg)
             else:
                 await self.send_text(fail_msg)
             return False, "查询内容为空"
@@ -597,7 +562,7 @@ class DuckDuckGoSearchAction(BaseAction):
             results = duckduckgo_search(query)
             if not results.get("success") or not results.get("results"):
                 fail_msg = f"没有搜索到与“{query}”相关的内容。请简要解释可能的原因并安慰用户。"
-                result_status, llm_response = await generator_api.rewrite_reply(
+                result_status, result_message = await generator_api.rewrite_reply(
                     chat_stream=self.chat_stream,
                     reply_data={
                         "raw_reply": fail_msg,
@@ -606,11 +571,8 @@ class DuckDuckGoSearchAction(BaseAction):
                     enable_splitter=False,
                     enable_chinese_typo=False
                 )
-                if result_status and llm_response and llm_response.reply_set:
-                    for reply_seg in llm_response.reply_set:
-                        data = reply_seg[1]
-                        await self.send_text(data)
-                        await asyncio.sleep(1.0)
+                if result_status and result_message:
+                    await self.send_text(result_message.content or fail_msg)
                 else:
                     await self.send_text(fail_msg)
                 return False, "无搜索结果"
@@ -618,7 +580,7 @@ class DuckDuckGoSearchAction(BaseAction):
                 f"[{i+1}] {item['title']}\n{item['snippet']}\n链接: {item['url']}" for i, item in enumerate(results["results"])
             ])
             # 使用generate_rewrite_reply润色后再发送
-            status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": summary,
@@ -627,18 +589,15 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or summary)
             else:
                 await self.send_text(summary)
             return True, summary
         except Exception as e:
             logger.error(f"DuckDuckGo搜索Action出错: {e}", exc_info=True)
             fail_msg = f"DuckDuckGo搜索失败：{str(e)[:100]}。请简要解释可能的原因并安慰用户。"
-            status, llm_response = await generator_api.rewrite_reply(
+            result_status, result_message = await generator_api.rewrite_reply(
                 chat_stream=self.chat_stream,
                 reply_data={
                     "raw_reply": fail_msg,
@@ -647,11 +606,8 @@ class DuckDuckGoSearchAction(BaseAction):
                 enable_splitter=False,
                 enable_chinese_typo=False
             )
-            if status and llm_response and llm_response.reply_set:
-                for reply_seg in llm_response.reply_set:
-                    data = reply_seg[1]
-                    await self.send_text(data)
-                    await asyncio.sleep(1.0)
+            if result_status and result_message:
+                await self.send_text(result_message.content or fail_msg)
             else:
                 await self.send_text(fail_msg)
             return False, fail_msg

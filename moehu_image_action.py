@@ -4,6 +4,9 @@ import requests
 import random
 import json
 import toml
+from typing import Tuple
+
+from src.plugin_system import BaseAction, ActionActivationType
 
 # 读取代理配置，优先从config.toml读取[proxy]节
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.toml')
@@ -104,3 +107,45 @@ def get_moehu_image(image_type=None, proxy=None):
     base64_image = base64.b64encode(img_bytes).decode("utf-8")
     datauri = f"data:image/jpeg;base64,{base64_image}"
     return datauri
+
+class PixivMoehuAction(BaseAction):
+    """萌虎图片动作 - 发送萌虎图片"""
+    
+    # 激活类型设置
+    activation_type = ActionActivationType.ALWAYS
+    random_activation_probability = 0.1  # 10%概率激活
+    parallel_action = True
+
+    # 动作基本信息
+    action_name = "moehu_image"
+    action_description = "发送萌虎图片"
+
+    # 动作参数定义
+    action_parameters = {}
+
+    # 动作使用场景
+    action_require = [
+        "需要发送二次元图片时使用",
+        "想要展示ACG相关图片时使用",
+        "不要连续发送，如果已经发过[二次元图片]，就不要选择此动作"
+    ]
+
+    # 关联类型
+    associated_types = ["image"]
+
+    async def execute(self) -> Tuple[bool, str]:
+        try:
+            # 随机选择一个图片类型
+            image_type = random.choice(["2d", "3d", "vtuber", "character", "game", "anime"])
+            
+            # 获取图片
+            image_data = get_moehu_image(image_type=image_type)
+            
+            # 发送图片
+            success = await self.send_image(image_data)
+            if success:
+                return True, "成功发送萌虎图片"
+            else:
+                return False, "发送萌虎图片失败"
+        except Exception as e:
+            return False, f"获取或发送萌虎图片时出错: {str(e)}"
